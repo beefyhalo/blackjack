@@ -122,6 +122,9 @@ data GameStateWithRng (vertex :: GameVertex) = GameStateWithRng
     state :: GameState vertex
   }
 
+updateR :: GameStateWithRng v -> GameStateWithRng v
+updateR game = game {rng = let (_, g') = split (rng game) in g'}
+
 data GameState (vertex :: GameVertex) where
   LobbyState :: Map.Map PlayerId Bet -> GameState 'InLobby
   BiddingState :: Map.Map PlayerId Bet -> GameState 'AwaitingBets
@@ -200,19 +203,24 @@ decider initialState =
           _ -> Left GameAlreadyStarted
         ExitGame -> const (Right GameExited),
       evolve = \game@GameStateWithRng {rng, state} event -> case (state, event) of
-        (LobbyState players, Right (PlayerJoined pid)) -> EvolutionResult (game {state = LobbyState $ Map.insert pid (Bet 0 100) players})
-        (LobbyState players, Right (PlayerLeft pid)) -> EvolutionResult (game {state = LobbyState $ Map.delete pid players})
-        (LobbyState players, Right GameStarted) -> EvolutionResult (game {state = BiddingState players})
+        (LobbyState players, Right (PlayerJoined pid)) ->
+          let players' = Map.insert pid (Bet 0 100) players
+           in EvolutionResult game {state = LobbyState players'}
+        (LobbyState players, Right (PlayerLeft pid)) ->
+          let players' = Map.delete pid players
+           in EvolutionResult game {state = LobbyState players'}
+        (LobbyState players, Right GameStarted) ->
+          EvolutionResult game {state = BiddingState players}
         (BiddingState bets, Right (BetPlaced pid amt)) ->
           let bets' = Map.adjust (\b -> b {current = amt, chips = chips b - amt}) pid bets
               allBetsAreIn = all ((> 0) . current) bets
            in if allBetsAreIn
-                then EvolutionResult (game {state = DealingState bets'})
-                else EvolutionResult (game {state = BiddingState bets'})
+                then EvolutionResult game {state = DealingState bets'}
+                else EvolutionResult game {state = BiddingState bets'}
         (DealingState bets, Right (CardsDealt _ dealer))
           | score dealer == 21 ->
               let outcomes = Loss . current <$> bets
-               in EvolutionResult (game {state = ResultState bets outcomes dealer})
+               in EvolutionResult game {state = ResultState bets outcomes dealer}
         (DealingState bets, Right (CardsDealt playerHands dealer)) ->
           let -- Start from full deck
               Deck deck = mkShuffledDeck rng
@@ -220,7 +228,7 @@ decider initialState =
               dealtCards = length bets * 2 + 2
               deck' = Deck (drop dealtCards deck)
               players = Map.fromList $ (\(pid, h) -> (pid, Player pid h (bets Map.! pid) False False)) <$> playerHands
-           in EvolutionResult (game {state = PlayerTurnState deck' players dealer})
+           in EvolutionResult game {state = PlayerTurnState deck' players dealer}
         (PlayerTurnState (Deck (_ : rest)) players dealer, Right (PlayerHitCard pid card)) ->
           let players' = Map.adjust (\p -> p {hand = addCard card (hand p), isBusted = score (hand p) > 21}) pid players
               deck = Deck rest
@@ -228,15 +236,15 @@ decider initialState =
               bets = fmap bet players'
               outcomes = Loss . current <$> bets
            in if
-                | all isBusted players' -> EvolutionResult (game {state = ResultState bets outcomes dealer})
-                | allBustOrStand -> EvolutionResult (game {state = DealerTurnState deck players dealer})
-                | otherwise -> EvolutionResult (game {state = PlayerTurnState deck players' dealer})
+                | all isBusted players' -> EvolutionResult game {state = ResultState bets outcomes dealer}
+                | allBustOrStand -> EvolutionResult game {state = DealerTurnState deck players dealer}
+                | otherwise -> EvolutionResult game {state = PlayerTurnState deck players' dealer}
         (PlayerTurnState deck players dealer, Right (PlayerStood pid)) ->
           let players' = Map.adjust (\p -> p {hasStood = True}) pid players
               allBustOrStand = all (\p -> isBusted p || hasStood p) players'
            in if allBustOrStand
-                then EvolutionResult (game {state = DealerTurnState deck players dealer})
-                else EvolutionResult (game {state = PlayerTurnState deck players' dealer})
+                then EvolutionResult game {state = DealerTurnState deck players dealer}
+                else EvolutionResult game {state = PlayerTurnState deck players' dealer}
         (DealerTurnState _ players dealer, Right (DealerPlayed dealerHand)) ->
           let outcomes = fmap compareHand players
               bets = fmap bet players
@@ -253,8 +261,7 @@ decider initialState =
               adjustChips (Win win) bet = bet {current = 0, chips = chips bet + 2 * win}
               adjustChips (Loss _) bet = bet {current = 0}
               adjustChips Push bet = bet
-              (_, g') = split rng
-           in EvolutionResult (game {rng = g', state = LobbyState bets'})
+           in EvolutionResult (updateR game {state = LobbyState bets'})
         (ResultState {}, Right GameExited) -> EvolutionResult game {state = ExitedState}
         (_, _) -> EvolutionResult game
     }
