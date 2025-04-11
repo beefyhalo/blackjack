@@ -25,9 +25,9 @@ source-repository head
 
 library
   exposed-modules:
-      Blackjack
-      Card
-      FSM
+      Application
+      Domain
+      Game
   other-modules:
       Paths_blackjack
   autogen-modules:

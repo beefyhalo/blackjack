@@ -1,6 +1,6 @@
 module Main (main) where
 
-import FSM
+import Application (gameLoop, stateMachine)
 import System.Random (initStdGen)
 
 main :: IO ()

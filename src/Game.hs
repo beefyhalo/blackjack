@@ -7,26 +7,17 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
--- https://downloads.haskell.org/ghc/latest/docs/users_guide/using-warnings.html#ghc-flag--Wmissing-deriving-strategies
-{-# OPTIONS_GHC -Wno-missing-deriving-strategies #-}
--- https://downloads.haskell.org/ghc/latest/docs/users_guide/using-warnings.html#ghc-flag--Wunticked-promoted-constructors
-{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
--- https://downloads.haskell.org/ghc/latest/docs/users_guide/using-warnings.html#ghc-flag--Wunused-type-patterns
-{-# OPTIONS_GHC -Wno-unused-type-patterns #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
-module FSM where
+module Game (baseMachine, decider) where
 
-import Card
-import Control.Monad.Identity (Identity)
 import Crem.BaseMachine (BaseMachine, InitialState (..))
-import Crem.Decider (Decider (Decider, decide, deciderInitialState, evolve), EvolutionResult (EvolutionResult), deciderMachine)
+import Crem.Decider (Decider (..), EvolutionResult (EvolutionResult), deciderMachine)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
-import Crem.StateMachine (StateMachine, StateMachineT (Basic), run)
-import Crem.Topology
-import Data.Functor.Identity (runIdentity)
+import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
-import System.IO.Error (catchIOError)
+import Domain
 import System.Random (StdGen, split)
 import "singletons-base" Data.Singletons.Base.TH hiding (Decision)
 
@@ -59,78 +50,13 @@ $( singletons
 
 deriving via AllVertices GameVertex instance RenderableVertices GameVertex
 
-newtype PlayerId = PlayerId String deriving (Eq, Ord, Show, Read)
-
-type Chips = Int
-
-data Player = Player
-  { hand :: Hand,
-    bet :: Bet,
-    hasStood :: Bool
-  }
-  deriving (Show)
-
-data Bet = Bet
-  { current :: Chips,
-    chips :: Chips
-  }
-  deriving (Eq, Show)
-
-data Outcome
-  = Win Chips
-  | Loss Chips
-  | Push
-  deriving
-    ( -- | BlackjackWin Chips
-      -- | Surrendered Chips
-      Eq,
-      Show
-    )
-
-data Command
-  = JoinGame PlayerId
-  | LeaveGame PlayerId
-  | StartGame
-  | PlaceBet PlayerId Chips
-  | DealInitialCards
-  | PlayerHit PlayerId
-  | PlayerStand PlayerId
-  | DealerPlay
-  | ResolveRound
-  | RestartGame
-  | ExitGame
-  -- \| PlayerDoubleDown PlayerId
-  -- \| PlayerSplit PlayerId
-  -- \| PlayerSurrender PlayerId
-  deriving (Read)
-
-data Event
-  = PlayerJoined PlayerId
-  | PlayerLeft PlayerId
-  | GameStarted
-  | BetPlaced PlayerId Chips
-  | CardsDealt [(PlayerId, Hand)] Hand
-  | PlayerHitCard PlayerId Card
-  | PlayerStood PlayerId
-  | DealerPlayed Hand
-  | RoundResolved (Map.Map PlayerId (Outcome, Bet))
-  | GameRestarted
-  | GameExited
-  deriving
-    ( -- | PlayerDoubledDown PlayerId Card
-      -- | PlayerSplitHand PlayerId Card Card
-      -- | PlayerSurrendered PlayerId
-      Eq,
-      Show
-    )
-
 data Game (vertex :: GameVertex) = Game
   { stdGen :: StdGen,
     state :: GameState vertex
   }
 
-updateR :: Game v -> Game v
-updateR game = game {stdGen = let (_, g') = split (stdGen game) in g'}
+withUpdatedRng :: Game v -> Game v
+withUpdatedRng game = game {stdGen = let (_, g') = split (stdGen game) in g'}
 
 data GameState (vertex :: GameVertex) where
   LobbyState :: Map.Map PlayerId Bet -> GameState 'InLobby
@@ -142,18 +68,37 @@ data GameState (vertex :: GameVertex) where
   ResultState :: Map.Map PlayerId Bet -> GameState 'Result
   ExitedState :: GameState 'GameOver
 
-data GameError
-  = PlayerAlreadyJoined
-  | GameAlreadyStarted
-  | PlayerNotFound
-  | TooFewPlayers
-  | BadCommand
-  | MalsizedBet
-  | PlayerAlreadyBet
-  | EmptyDeck
-  | PlayersStillBetting
-  | PlayersStillPlaying
-  deriving (Eq, Show)
+baseMachine :: StdGen -> BaseMachine GameTopology Command (Either GameError Event)
+baseMachine stdGen = deciderMachine (decider (InitialState (Game stdGen (LobbyState mempty))))
+
+decider :: InitialState Game -> Decider GameTopology Command (Either GameError Event)
+decider initialState =
+  Decider
+    { deciderInitialState = initialState,
+      decide = \case
+        JoinGame pid -> decideJoinGame pid
+        LeaveGame pid -> decideLeaveGame pid
+        StartGame -> decideStartGame
+        PlaceBet pid amt -> decidePlaceBet pid amt
+        DealInitialCards -> decideDealInitialCards
+        PlayerHit pid -> decidePlayerHit pid
+        PlayerStand pid -> decidePlayerStand pid
+        DealerPlay -> decideDealerPlay
+        ResolveRound -> decideResolveRound
+        RestartGame -> decideRestartGame
+        ExitGame -> decideExitGame,
+      evolve = \game -> \case
+        Left _ -> EvolutionResult game
+        Right event -> case state game of
+          LobbyState {} -> evolveLobby game event
+          BiddingState {} -> evolveBidding game event
+          DealingState {} -> evolveDealing game event
+          PlayerTurnState {} -> evolvePlayerTurn game event
+          DealerTurnState {} -> evolveDealerTurn game event
+          ResolvingState {} -> evolveResolution game event
+          ResultState {} -> evolveResult game event
+          ExitedState {} -> EvolutionResult game
+    }
 
 type Decision = Either GameError Event
 
@@ -186,7 +131,7 @@ decidePlaceBet pid amt = \case
 decideDealInitialCards :: Game vertex -> Decision
 decideDealInitialCards = \case
   Game {state = DealingState pids deck} ->
-    fromMaybe (Left EmptyDeck) $ do
+    fromMaybe (Left EmptyDeck) do
       (playerHands, deck') <- dealNTo 2 (Map.keys pids) deck
       (dealerHand, _) <- dealN 2 deck'
       pure (Right $ CardsDealt playerHands dealerHand)
@@ -262,8 +207,7 @@ evolveLobby game@Game {state = LobbyState players} = \case
   PlayerLeft pid ->
     let players' = Map.delete pid players
      in EvolutionResult game {state = LobbyState players'}
-  GameStarted ->
-    EvolutionResult game {state = BiddingState players}
+  GameStarted -> EvolutionResult game {state = BiddingState players}
   _ -> EvolutionResult game
 
 evolveBidding :: Game AwaitingBets -> Event -> EvolutionResult GameTopology Game AwaitingBets output
@@ -320,53 +264,6 @@ evolveResolution game = \case
 
 evolveResult :: Game Result -> Event -> EvolutionResult GameTopology Game Result output
 evolveResult game@Game {state = ResultState bets} = \case
-  GameRestarted -> EvolutionResult (updateR game {state = LobbyState bets})
+  GameRestarted -> EvolutionResult (withUpdatedRng game {state = LobbyState bets})
   GameExited -> EvolutionResult game {state = ExitedState}
   _ -> EvolutionResult game
-
-decider :: InitialState Game -> Decider GameTopology Command (Either GameError Event)
-decider initialState =
-  Decider
-    { deciderInitialState = initialState,
-      decide = \case
-        JoinGame pid -> decideJoinGame pid
-        LeaveGame pid -> decideLeaveGame pid
-        StartGame -> decideStartGame
-        PlaceBet pid amt -> decidePlaceBet pid amt
-        DealInitialCards -> decideDealInitialCards
-        PlayerHit pid -> decidePlayerHit pid
-        PlayerStand pid -> decidePlayerStand pid
-        DealerPlay -> decideDealerPlay
-        ResolveRound -> decideResolveRound
-        RestartGame -> decideRestartGame
-        ExitGame -> decideExitGame,
-      evolve = \game -> \case
-        Left _ -> EvolutionResult game
-        Right event -> case state game of
-          LobbyState {} -> evolveLobby game event
-          BiddingState {} -> evolveBidding game event
-          DealingState {} -> evolveDealing game event
-          PlayerTurnState {} -> evolvePlayerTurn game event
-          DealerTurnState {} -> evolveDealerTurn game event
-          ResolvingState {} -> evolveResolution game event
-          ResultState {} -> evolveResult game event
-          ExitedState {} -> EvolutionResult game
-    }
-
-baseMachine :: StdGen -> BaseMachine GameTopology Command (Either GameError Event)
-baseMachine g = deciderMachine (decider (InitialState (Game g (LobbyState mempty))))
-
-stateMachine :: StdGen -> StateMachine Command (Either GameError Event)
-stateMachine g = Basic (baseMachine g)
-
-gameLoop :: StateMachineT Identity Command (Either GameError Event) -> IO ()
-gameLoop machine = do
-  command <- commandLoop
-  let (output, machine') = runIdentity $ run machine command
-  print output
-  gameLoop machine'
-
-commandLoop :: IO Command
-commandLoop = catchIOError readLn $ const do
-  putStrLn "Invalid Command."
-  commandLoop

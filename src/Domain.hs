@@ -1,9 +1,90 @@
 {-# LANGUAGE BlockArguments #-}
 
-module Card (module Card) where
+module Domain (module Domain) where
 
+import Data.Map qualified as Map
+import Data.String (IsString)
 import Data.Vector qualified as V
 import System.Random (StdGen, randomR)
+
+type Chips = Int
+
+newtype PlayerId = PlayerId String
+  deriving (Eq, Ord, Show, Read, IsString)
+
+data Player = Player
+  { hand :: Hand,
+    bet :: Bet,
+    hasStood :: Bool
+  }
+  deriving (Show)
+
+data Bet = Bet
+  { current :: Chips,
+    chips :: Chips
+  }
+  deriving (Eq, Show)
+
+data Outcome
+  = Win Chips
+  | Loss Chips
+  | Push
+  deriving
+    ( -- | BlackjackWin Chips
+      -- | Surrendered Chips
+      Eq,
+      Show
+    )
+
+data Command
+  = JoinGame PlayerId
+  | LeaveGame PlayerId
+  | StartGame
+  | PlaceBet PlayerId Chips
+  | DealInitialCards
+  | PlayerHit PlayerId
+  | PlayerStand PlayerId
+  | DealerPlay
+  | ResolveRound
+  | RestartGame
+  | ExitGame
+  -- \| PlayerDoubleDown PlayerId
+  -- \| PlayerSplit PlayerId
+  -- \| PlayerSurrender PlayerId
+  deriving (Read)
+
+data Event
+  = PlayerJoined PlayerId
+  | PlayerLeft PlayerId
+  | GameStarted
+  | BetPlaced PlayerId Chips
+  | CardsDealt [(PlayerId, Hand)] Hand
+  | PlayerHitCard PlayerId Card
+  | PlayerStood PlayerId
+  | DealerPlayed Hand
+  | RoundResolved (Map.Map PlayerId (Outcome, Bet))
+  | GameRestarted
+  | GameExited
+  deriving
+    ( -- | PlayerDoubledDown PlayerId Card
+      -- | PlayerSplitHand PlayerId Card Card
+      -- | PlayerSurrendered PlayerId
+      Eq,
+      Show
+    )
+
+data GameError
+  = PlayerAlreadyJoined
+  | GameAlreadyStarted
+  | PlayerNotFound
+  | TooFewPlayers
+  | BadCommand
+  | MalsizedBet
+  | PlayerAlreadyBet
+  | EmptyDeck
+  | PlayersStillBetting
+  | PlayersStillPlaying
+  deriving (Eq, Show)
 
 data Deck = Deck
   { gen :: StdGen,
