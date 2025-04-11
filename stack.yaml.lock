@@ -5,16 +5,19 @@
 
 packages:
 - completed:
-    commit: b2a7fd79ad96267e934261b5b9f05aa81f23da1c
-    git: https://github.com/marcosh/crem.git
-    name: crem
+    hackage: crem-0.1.0.0@sha256:59802923990f768b089c5593e86b3ecf268545717514c88850ad1db015c51baf,13083
     pantry-tree:
-      sha256: 64cebbc7d083dc922f24907d8e22437b0cc63b59af9fb606db90d0c64b6b7032
-      size: 5062
-    version: 0.1.0.0
+      sha256: 65c5c4c9ff277cd7dbdc492146098b0a947741c57555fd0f4b68537049d50916
+      size: 2434
   original:
-    commit: b2a7fd79ad96267e934261b5b9f05aa81f23da1c
-    git: https://github.com/marcosh/crem.git
+    hackage: crem-0.1.0.0
+- completed:
+    hackage: generic-override-0.4.0.0@sha256:7369132cccf374206b76afbbd321ff617ba26662b26854a3789985d170276531,1500
+    pantry-tree:
+      sha256: 5a3c88518972475eeca0ad0abeb03d8bfcfa3dba3dec4346eebfecf930536ade
+      size: 524
+  original:
+    hackage: generic-override-0.4.0.0
 snapshots:
 - completed:
     sha256: 08bd13ce621b41a8f5e51456b38d5b46d7783ce114a50ab604d6bbab0d002146

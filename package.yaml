@@ -46,6 +46,8 @@ library:
   - list-shuffle
   - array
   - vector
+  - generic-override
+  - profunctors
 
 executables:
   blackjack-exe:

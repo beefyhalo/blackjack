@@ -43,8 +43,8 @@ packages:
 #
 # extra-deps: []
 extra-deps:
-- git: https://github.com/marcosh/crem.git
-  commit: b2a7fd79ad96267e934261b5b9f05aa81f23da1c
+- crem-0.1.0.0
+- generic-override-0.4.0.0
 
 # Override default flag values for project packages and extra-deps
 # flags: {}
