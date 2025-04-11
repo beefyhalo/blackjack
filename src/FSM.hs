@@ -253,7 +253,7 @@ decider initialState =
            in if allBustOrStand
                 then EvolutionResult game {state = DealerTurnState deck players dealer}
                 else EvolutionResult game {state = PlayerTurnState deck players' dealer}
-        (DealerTurnState _ players dealer, Right (DealerPlayed _)) ->
+        (DealerTurnState _ players _, Right (DealerPlayed dealer)) ->
           let outcomes = fmap compareHand players
               bets = fmap bet players
               compareHand Player {hand, bet} | isBust hand = Loss (current bet)
