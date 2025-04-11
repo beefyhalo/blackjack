@@ -217,7 +217,7 @@ decider initialState =
           EvolutionResult game {state = BiddingState players}
         (BiddingState bets, Right (BetPlaced pid amt)) ->
           let bets' = Map.adjust (\b -> b {current = amt}) pid bets
-              allBetsAreIn = all ((> 0) . current) bets
+              allBetsAreIn = all ((> 0) . current) bets'
            in if allBetsAreIn
                 then EvolutionResult game {state = DealingState bets'}
                 else EvolutionResult game {state = BiddingState bets'}
