@@ -5,7 +5,7 @@
 -- {-# LANGUAGE StandaloneDeriving #-}
 -- {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
--- module Blackjack where
+module Blackjack where
 
 -- import Card
 -- import Data.List.NonEmpty (NonEmpty ((:|)))

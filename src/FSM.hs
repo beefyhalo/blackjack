@@ -17,12 +17,16 @@
 module FSM where
 
 import Card
+import Control.Monad.Identity (Identity)
 import Crem.BaseMachine
-import Crem.Decider (Decider (Decider, decide, deciderInitialState, evolve), EvolutionResult (EvolutionResult))
+import Crem.Decider (Decider (Decider, decide, deciderInitialState, evolve), EvolutionResult (EvolutionResult), deciderMachine)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
+import Crem.StateMachine (StateMachine, StateMachineT (Basic), run)
 import Crem.Topology
+import Data.Functor.Identity (runIdentity)
 import Data.Map qualified as Map
-import System.Random (StdGen, split)
+import System.IO.Error (catchIOError)
+import System.Random (StdGen, mkStdGen, split)
 import "singletons-base" Data.Singletons.Base.TH
 
 $( singletons
@@ -52,7 +56,7 @@ $( singletons
 
 deriving via AllVertices GameVertex instance RenderableVertices GameVertex
 
-newtype PlayerId = PlayerId String deriving (Eq, Ord, Show)
+newtype PlayerId = PlayerId String deriving (Eq, Ord, Show, Read)
 
 type Chips = Int
 
@@ -93,10 +97,10 @@ data Command
   | DealerPlay
   | RestartGame
   | ExitGame
-
--- \| PlayerDoubleDown PlayerId
--- \| PlayerSplit PlayerId
--- \| PlayerSurrender PlayerId
+  -- \| PlayerDoubleDown PlayerId
+  -- \| PlayerSplit PlayerId
+  -- \| PlayerSurrender PlayerId
+  deriving (Read)
 
 data Event
   = PlayerJoined PlayerId
@@ -265,3 +269,21 @@ decider initialState =
         (ResultState {}, Right GameExited) -> EvolutionResult game {state = ExitedState}
         (_, _) -> EvolutionResult game
     }
+
+baseMachine :: BaseMachine GameTopology Command (Either GameError Event)
+baseMachine = deciderMachine (decider (InitialState (Game (mkStdGen 42) (LobbyState mempty))))
+
+stateMachine :: StateMachine Command (Either GameError Event)
+stateMachine = Basic baseMachine
+
+gameLoop :: StateMachineT Identity Command (Either GameError Event) -> IO ()
+gameLoop machine = do
+  command <- commandLoop
+  let (output, machine') = runIdentity $ run machine command
+  print output
+  gameLoop machine'
+
+commandLoop :: IO Command
+commandLoop = catchIOError readLn $ const do
+  putStrLn "Invalid Command."
+  commandLoop
