@@ -89,15 +89,17 @@ decider initialState =
         ExitGame -> decideExitGame,
       evolve = \game -> \case
         Left _ -> EvolutionResult game
-        Right event -> case state game of
-          LobbyState {} -> evolveLobby game event
-          BiddingState {} -> evolveBidding game event
-          DealingState {} -> evolveDealing game event
-          PlayerTurnState {} -> evolvePlayerTurn game event
-          DealerTurnState {} -> evolveDealerTurn game event
-          ResolvingState {} -> evolveResolution game event
-          ResultState {} -> evolveResult game event
-          ExitedState {} -> EvolutionResult game
+        Right event ->
+          let step = case state game of
+                LobbyState {} -> evolveLobby
+                BiddingState {} -> evolveBidding
+                DealingState {} -> evolveDealing
+                PlayerTurnState {} -> evolvePlayerTurn
+                DealerTurnState {} -> evolveDealerTurn
+                ResolvingState {} -> evolveResolution
+                ResultState {} -> evolveResult
+                ExitedState {} -> const . EvolutionResult
+           in step game event
     }
 
 type Decision = Either GameError Event
