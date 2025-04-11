@@ -44,6 +44,8 @@ library:
   - singletons-base
   - containers
   - list-shuffle
+  - array
+  - vector
 
 executables:
   blackjack-exe:

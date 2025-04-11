@@ -25,6 +25,7 @@ import Crem.StateMachine (StateMachine, StateMachineT (Basic), run)
 import Crem.Topology
 import Data.Functor.Identity (runIdentity)
 import Data.Map qualified as Map
+import Data.Maybe (fromMaybe)
 import System.IO.Error (catchIOError)
 import System.Random (StdGen, split)
 import "singletons-base" Data.Singletons.Base.TH
@@ -134,7 +135,7 @@ updateR game = game {stdGen = let (_, g') = split (stdGen game) in g'}
 data GameState (vertex :: GameVertex) where
   LobbyState :: Map.Map PlayerId Bet -> GameState 'InLobby
   BiddingState :: Map.Map PlayerId Bet -> GameState 'AwaitingBets
-  DealingState :: Map.Map PlayerId Bet -> GameState 'DealingCards
+  DealingState :: Map.Map PlayerId Bet -> Deck -> GameState 'DealingCards
   PlayerTurnState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'PlayerTurn
   DealerTurnState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'DealerTurn
   ResolvingState :: Map.Map PlayerId Player -> Hand -> GameState 'Resolving
@@ -150,6 +151,8 @@ data GameError
   | MalsizedBet
   | PlayerAlreadyBet
   | EmptyDeck
+  | PlayersStillBetting
+  | PlayersStillPlaying
   deriving (Eq, Show)
 
 decider :: InitialState Game -> Decider GameTopology Command (Either GameError Event)
@@ -176,16 +179,17 @@ decider initialState =
           Game {state = BiddingState {}} -> Left MalsizedBet
           _ -> Left BadCommand
         DealInitialCards -> \case
-          Game {stdGen, state = DealingState pids} ->
-            let deck = mkShuffledDeck stdGen
-                (playerHands, Deck rest) = dealNTo 2 (Map.keys pids) deck
-                (dealerH, _) = splitAt 2 rest
-             in Right $ CardsDealt playerHands (Hand dealerH)
+          Game {state = DealingState pids deck} ->
+            fromMaybe (Left EmptyDeck) $ do
+              (playerHands, deck') <- dealNTo 2 (Map.keys pids) deck
+              (dealerHand, _) <- dealN 2 deck'
+              pure (Right $ CardsDealt playerHands dealerHand)
+          Game {state = BiddingState {}} -> Left PlayersStillBetting
           _ -> Left BadCommand
         PlayerHit pid -> \case
           Game {state = PlayerTurnState _ players _} | not (Map.member pid players) -> Left PlayerNotFound
           Game {state = PlayerTurnState deck _ _} ->
-            case draw deck of
+            case drawCard deck of
               Just (card, _) -> Right (PlayerHitCard pid card)
               Nothing -> Left EmptyDeck
           _ -> Left BadCommand
@@ -199,11 +203,12 @@ decider initialState =
             let dealerTurn :: Hand -> Deck -> Hand
                 dealerTurn hand deck0
                   | score hand >= 17 = hand
-                  | otherwise = case draw deck0 of
+                  | otherwise = case drawCard deck0 of
                       Nothing -> hand
                       Just (card, newDeck) -> dealerTurn (addCard card hand) newDeck
                 dealer' = dealerTurn dealer deck
              in Right (DealerPlayed dealer')
+          Game {state = PlayerTurnState {}} -> Left PlayersStillPlaying
           _ -> Left BadCommand
         ResolveRound -> \case
           Game {state = ResolvingState players dealer} ->
@@ -215,7 +220,7 @@ decider initialState =
                       GT -> Win (current bet)
                       EQ -> Push
                 adjustChips bet = \case
-                  Win win -> bet {current = 0, chips = chips bet + 2 * win}
+                  Win win -> bet {current = 0, chips = chips bet + win}
                   Loss loss -> bet {current = 0, chips = chips bet - loss}
                   Push -> bet
                 summary player =
@@ -240,29 +245,27 @@ decider initialState =
         (BiddingState bets, Right (BetPlaced pid amt)) ->
           let bets' = Map.adjust (\b -> b {current = amt}) pid bets
               allBetsAreIn = all ((> 0) . current) bets'
+              deck = mkDeck stdGen
            in if allBetsAreIn
-                then EvolutionResult game {state = DealingState bets'}
+                then EvolutionResult game {state = DealingState bets' deck}
                 else EvolutionResult game {state = BiddingState bets'}
-        (DealingState bets, Right (CardsDealt _ dealer))
+        (DealingState bets _, Right (CardsDealt _ dealer))
           | score dealer == 21 ->
               let players = fmap (\b -> Player emptyHand b False) bets
                in EvolutionResult game {state = ResolvingState players dealer}
-        (DealingState bets, Right (CardsDealt playerHands dealer)) ->
-          let -- Start from full deck
-              Deck deck = mkShuffledDeck stdGen
-              -- Remove all cards dealt to players and dealer
-              dealtCards = length bets * 2 + 2
-              deck' = Deck (drop dealtCards deck)
-              players = Map.fromList $ fmap (\(pid, h) -> (pid, Player h (bets Map.! pid) False)) playerHands
+        (DealingState bets deck, Right (CardsDealt playerHands dealer)) ->
+          let players = Map.fromList $ fmap (\(pid, h) -> (pid, Player h (bets Map.! pid) False)) playerHands
+              cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealer
+              deck' = deck {drawn = drawn deck + cardsDrawn}
            in EvolutionResult game {state = PlayerTurnState deck' players dealer}
-        (PlayerTurnState (Deck (_ : rest)) players dealer, Right (PlayerHitCard pid card)) ->
-          let players' = Map.adjust (\p -> p {hand = addCard card (hand p)}) pid players
-              deck = Deck rest
+        (PlayerTurnState deck players dealer, Right (PlayerHitCard pid card)) ->
+          let deck' = deck {drawn = drawn deck + 1}
+              players' = Map.adjust (\p -> p {hand = addCard card (hand p)}) pid players
               allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
            in if
                 | all (isBust . hand) players' -> EvolutionResult game {state = ResolvingState players' dealer}
-                | allBustOrStand -> EvolutionResult game {state = DealerTurnState deck players dealer}
-                | otherwise -> EvolutionResult game {state = PlayerTurnState deck players' dealer}
+                | allBustOrStand -> EvolutionResult game {state = DealerTurnState deck' players' dealer}
+                | otherwise -> EvolutionResult game {state = PlayerTurnState deck' players' dealer}
         (PlayerTurnState deck players dealer, Right (PlayerStood pid)) ->
           let players' = Map.adjust (\p -> p {hasStood = True}) pid players
               allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
