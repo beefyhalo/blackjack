@@ -47,7 +47,7 @@ $( singletons
          Topology
            [ (InLobby, [AwaitingBets]),
              (AwaitingBets, [DealingCards]),
-             (DealingCards, [PlayerTurn, Result]),
+             (DealingCards, [PlayerTurn, Resolving]),
              (PlayerTurn, [PlayerTurn, DealerTurn, Resolving]),
              (DealerTurn, [Resolving]),
              (Resolving, [Result]),
@@ -112,7 +112,7 @@ data Event
   | PlayerHitCard PlayerId Card
   | PlayerStood PlayerId
   | DealerPlayed Hand
-  | RoundResolved (Map.Map PlayerId Bet) (Map.Map PlayerId Outcome)
+  | RoundResolved (Map.Map PlayerId (Outcome, Bet))
   | GameRestarted
   | GameExited
   deriving
@@ -138,7 +138,7 @@ data GameState (vertex :: GameVertex) where
   PlayerTurnState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'PlayerTurn
   DealerTurnState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'DealerTurn
   ResolvingState :: Map.Map PlayerId Player -> Hand -> GameState 'Resolving
-  ResultState :: Map.Map PlayerId Bet -> Map.Map PlayerId Outcome -> GameState 'Result
+  ResultState :: Map.Map PlayerId Bet -> GameState 'Result
   ExitedState :: GameState 'GameOver
 
 data GameError
@@ -214,13 +214,15 @@ decider initialState =
                       LT -> Loss (current bet)
                       GT -> Win (current bet)
                       EQ -> Push
-                outcomes = fmap compareHand players
-                bets = Map.mapWithKey (\pid Player {bet} -> adjustChips bet (outcomes Map.! pid)) players
                 adjustChips bet = \case
                   Win win -> bet {current = 0, chips = chips bet + 2 * win}
                   Loss loss -> bet {current = 0, chips = chips bet - loss}
                   Push -> bet
-             in Right (RoundResolved bets outcomes)
+                summary player =
+                  let outcome = compareHand player
+                   in (outcome, adjustChips (bet player) outcome)
+                result = fmap summary players
+             in Right (RoundResolved result)
           _ -> Left BadCommand
         RestartGame -> \case
           Game {state = ResultState {}} -> Right GameRestarted
@@ -243,8 +245,8 @@ decider initialState =
                 else EvolutionResult game {state = BiddingState bets'}
         (DealingState bets, Right (CardsDealt _ dealer))
           | score dealer == 21 ->
-              let outcomes = Loss . current <$> bets
-               in EvolutionResult game {state = ResultState bets outcomes}
+              let players = fmap (\b -> Player emptyHand b False) bets
+               in EvolutionResult game {state = ResolvingState players dealer}
         (DealingState bets, Right (CardsDealt playerHands dealer)) ->
           let -- Start from full deck
               Deck deck = mkShuffledDeck stdGen
@@ -269,9 +271,9 @@ decider initialState =
                 else EvolutionResult game {state = PlayerTurnState deck players' dealer}
         (DealerTurnState _ players _, Right (DealerPlayed dealer)) ->
           EvolutionResult game {state = ResolvingState players dealer}
-        (ResolvingState {}, Right (RoundResolved bets outcomes)) ->
-          EvolutionResult game {state = ResultState bets outcomes}
-        (ResultState bets _, Right GameRestarted) ->
+        (ResolvingState {}, Right (RoundResolved outcomes)) ->
+          EvolutionResult game {state = ResultState (fmap snd outcomes)}
+        (ResultState bets, Right GameRestarted) ->
           EvolutionResult (updateR game {state = LobbyState bets})
         (ResultState {}, Right GameExited) -> EvolutionResult game {state = ExitedState}
         (_, _) -> EvolutionResult game
