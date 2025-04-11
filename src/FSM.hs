@@ -18,7 +18,7 @@ module FSM where
 
 import Card
 import Control.Monad.Identity (Identity)
-import Crem.BaseMachine
+import Crem.BaseMachine (BaseMachine, InitialState (..))
 import Crem.Decider (Decider (Decider, decide, deciderInitialState, evolve), EvolutionResult (EvolutionResult), deciderMachine)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.StateMachine (StateMachine, StateMachineT (Basic), run)
@@ -28,7 +28,7 @@ import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import System.IO.Error (catchIOError)
 import System.Random (StdGen, split)
-import "singletons-base" Data.Singletons.Base.TH
+import "singletons-base" Data.Singletons.Base.TH hiding (Decision)
 
 $( singletons
      [d|
@@ -49,7 +49,7 @@ $( singletons
            [ (InLobby, [AwaitingBets]),
              (AwaitingBets, [DealingCards]),
              (DealingCards, [PlayerTurn, Resolving]),
-             (PlayerTurn, [PlayerTurn, DealerTurn, Resolving]),
+             (PlayerTurn, [DealerTurn, Resolving]),
              (DealerTurn, [Resolving]),
              (Resolving, [Result]),
              (Result, [InLobby, GameOver])
@@ -155,131 +155,202 @@ data GameError
   | PlayersStillPlaying
   deriving (Eq, Show)
 
+type Decision = Either GameError Event
+
+decideJoinGame :: PlayerId -> Game vertex -> Decision
+decideJoinGame pid = \case
+  Game {state = LobbyState players} | Map.member pid players -> Left PlayerAlreadyJoined
+  Game {state = LobbyState {}} -> Right (PlayerJoined pid)
+  _ -> Left GameAlreadyStarted
+
+decideLeaveGame :: PlayerId -> Game vertex -> Decision
+decideLeaveGame pid = \case
+  Game {state = LobbyState players} | Map.member pid players -> Right (PlayerLeft pid)
+  Game {state = LobbyState {}} -> Left PlayerNotFound
+  _ -> Left GameAlreadyStarted
+
+decideStartGame :: Game v -> Decision
+decideStartGame = \case
+  Game {state = LobbyState players} | null players -> Left TooFewPlayers
+  Game {state = LobbyState {}} -> Right GameStarted
+  _ -> Left GameAlreadyStarted
+
+decidePlaceBet :: PlayerId -> Chips -> Game vertex -> Decision
+decidePlaceBet pid amt = \case
+  Game {state = BiddingState bets} | not (Map.member pid bets) -> Left PlayerNotFound
+  Game {state = BiddingState bets} | current (bets Map.! pid) /= 0 -> Left PlayerAlreadyBet
+  Game {state = BiddingState bets} | amt > 0 && amt <= chips (bets Map.! pid) -> Right (BetPlaced pid amt)
+  Game {state = BiddingState {}} -> Left MalsizedBet
+  _ -> Left BadCommand
+
+decideDealInitialCards :: Game vertex -> Decision
+decideDealInitialCards = \case
+  Game {state = DealingState pids deck} ->
+    fromMaybe (Left EmptyDeck) $ do
+      (playerHands, deck') <- dealNTo 2 (Map.keys pids) deck
+      (dealerHand, _) <- dealN 2 deck'
+      pure (Right $ CardsDealt playerHands dealerHand)
+  Game {state = BiddingState {}} -> Left PlayersStillBetting
+  _ -> Left BadCommand
+
+decidePlayerHit :: PlayerId -> Game vertex -> Decision
+decidePlayerHit pid = \case
+  Game {state = PlayerTurnState _ players _} | not (Map.member pid players) -> Left PlayerNotFound
+  Game {state = PlayerTurnState deck _ _} ->
+    case drawCard deck of
+      Just (card, _) -> Right (PlayerHitCard pid card)
+      Nothing -> Left EmptyDeck
+  _ -> Left BadCommand
+
+decidePlayerStand :: PlayerId -> Game vertex -> Decision
+decidePlayerStand pid = \case
+  Game {state = PlayerTurnState _ players _} | not (Map.member pid players) -> Left PlayerNotFound
+  Game {state = PlayerTurnState {}} -> Right (PlayerStood pid)
+  _ -> Left BadCommand
+
+decideDealerPlay :: Game vertex -> Decision
+decideDealerPlay = \case
+  Game {state = DealerTurnState deck _ dealer} ->
+    let dealer' = dealerTurn dealer deck
+     in Right (DealerPlayed dealer')
+  Game {state = PlayerTurnState {}} -> Left PlayersStillPlaying
+  _ -> Left BadCommand
+  where
+    -- Draw cards until the hand has at least 17 points
+    dealerTurn :: Hand -> Deck -> Hand
+    dealerTurn hand deck
+      | score hand >= 17 = hand
+      | otherwise = case drawCard deck of
+          Nothing -> hand
+          Just (card, newDeck) -> dealerTurn (addCard card hand) newDeck
+
+decideResolveRound :: Game vertex -> Decision
+decideResolveRound = \case
+  Game {state = ResolvingState players dealer} ->
+    let summary player =
+          let outcome = compareHand player dealer
+           in (outcome, adjustChips (bet player) outcome)
+        result = fmap summary players
+     in Right (RoundResolved result)
+  _ -> Left BadCommand
+  where
+    compareHand Player {hand, bet} dealer
+      | isBust hand = Loss (current bet)
+      | isBust dealer = Win (current bet)
+      | otherwise = case compare (score hand) (score dealer) of
+          LT -> Loss (current bet)
+          GT -> Win (current bet)
+          EQ -> Push
+    adjustChips bet = \case
+      Win win -> bet {current = 0, chips = chips bet + win}
+      Loss loss -> bet {current = 0, chips = chips bet - loss}
+      Push -> bet
+
+decideRestartGame :: Game vertex -> Decision
+decideRestartGame = \case
+  Game {state = ResultState {}} -> Right GameRestarted
+  _ -> Left GameAlreadyStarted
+
+decideExitGame :: Game vertex -> Decision
+decideExitGame = const (Right GameExited)
+
+evolveLobby :: Game InLobby -> Event -> EvolutionResult GameTopology Game InLobby output
+evolveLobby game@Game {state = LobbyState players} = \case
+  PlayerJoined pid ->
+    let players' = Map.insert pid (Bet 0 100) players
+     in EvolutionResult game {state = LobbyState players'}
+  PlayerLeft pid ->
+    let players' = Map.delete pid players
+     in EvolutionResult game {state = LobbyState players'}
+  GameStarted ->
+    EvolutionResult game {state = BiddingState players}
+  _ -> EvolutionResult game
+
+evolveBidding :: Game AwaitingBets -> Event -> EvolutionResult GameTopology Game AwaitingBets output
+evolveBidding game@Game {state = BiddingState bets} = \case
+  BetPlaced pid chips ->
+    let bets' = Map.adjust (\b -> b {current = chips}) pid bets
+        allBetsAreIn = all ((> 0) . current) bets'
+        deck = mkDeck (stdGen game)
+     in if allBetsAreIn
+          then EvolutionResult game {state = DealingState bets' deck}
+          else EvolutionResult game {state = BiddingState bets'}
+  _ -> EvolutionResult game
+
+evolveDealing :: Game DealingCards -> Event -> EvolutionResult GameTopology Game DealingCards output
+evolveDealing game@Game {state = DealingState bets deck} = \case
+  CardsDealt playerHands dealer
+    | score dealer == 21 ->
+        let players = fmap (\b -> Player emptyHand b False) bets
+         in EvolutionResult game {state = ResolvingState players dealer}
+    | otherwise ->
+        let players = Map.fromList $ fmap (\(pid, h) -> (pid, Player h (bets Map.! pid) False)) playerHands
+            cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealer
+            deck' = deck {drawn = drawn deck + cardsDrawn}
+         in EvolutionResult game {state = PlayerTurnState deck' players dealer}
+  _ -> EvolutionResult game
+
+evolvePlayerTurn :: Game PlayerTurn -> Event -> EvolutionResult GameTopology Game PlayerTurn output
+evolvePlayerTurn game@Game {state = PlayerTurnState deck players dealer} = \case
+  PlayerHitCard pid card ->
+    let deck' = deck {drawn = drawn deck + 1}
+        players' = Map.adjust (\p -> p {hand = addCard card (hand p)}) pid players
+        allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
+     in if
+          | all (isBust . hand) players' -> EvolutionResult game {state = ResolvingState players' dealer}
+          | allBustOrStand -> EvolutionResult game {state = DealerTurnState deck' players' dealer}
+          | otherwise -> EvolutionResult game {state = PlayerTurnState deck' players' dealer}
+  PlayerStood pid ->
+    let players' = Map.adjust (\p -> p {hasStood = True}) pid players
+        allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
+     in if allBustOrStand
+          then EvolutionResult game {state = DealerTurnState deck players dealer}
+          else EvolutionResult game {state = PlayerTurnState deck players' dealer}
+  _ -> EvolutionResult game
+
+evolveDealerTurn :: Game DealerTurn -> Event -> EvolutionResult GameTopology Game DealerTurn output
+evolveDealerTurn game@Game {state = DealerTurnState _ players _} = \case
+  DealerPlayed dealer -> EvolutionResult game {state = ResolvingState players dealer}
+  _ -> EvolutionResult game
+
+evolveResolution :: Game Resolving -> Event -> EvolutionResult GameTopology Game Resolving output
+evolveResolution game = \case
+  RoundResolved outcomes -> EvolutionResult game {state = ResultState (fmap snd outcomes)}
+  _ -> EvolutionResult game
+
+evolveResult :: Game Result -> Event -> EvolutionResult GameTopology Game Result output
+evolveResult game@Game {state = ResultState bets} = \case
+  GameRestarted -> EvolutionResult (updateR game {state = LobbyState bets})
+  GameExited -> EvolutionResult game {state = ExitedState}
+  _ -> EvolutionResult game
+
 decider :: InitialState Game -> Decider GameTopology Command (Either GameError Event)
 decider initialState =
   Decider
     { deciderInitialState = initialState,
       decide = \case
-        JoinGame pid -> \case
-          Game {state = LobbyState players} | Map.member pid players -> Left PlayerAlreadyJoined
-          Game {state = LobbyState {}} -> Right (PlayerJoined pid)
-          _ -> Left GameAlreadyStarted
-        LeaveGame pid -> \case
-          Game {state = LobbyState players} | Map.member pid players -> Right (PlayerLeft pid)
-          Game {state = LobbyState {}} -> Left PlayerNotFound
-          _ -> Left GameAlreadyStarted
-        StartGame -> \case
-          Game {state = LobbyState players} | null players -> Left TooFewPlayers
-          Game {state = LobbyState {}} -> Right GameStarted
-          _ -> Left GameAlreadyStarted
-        PlaceBet pid amt -> \case
-          Game {state = BiddingState bets} | not (Map.member pid bets) -> Left PlayerNotFound
-          Game {state = BiddingState bets} | current (bets Map.! pid) /= 0 -> Left PlayerAlreadyBet
-          Game {state = BiddingState bets} | amt > 0 && amt <= chips (bets Map.! pid) -> Right (BetPlaced pid amt)
-          Game {state = BiddingState {}} -> Left MalsizedBet
-          _ -> Left BadCommand
-        DealInitialCards -> \case
-          Game {state = DealingState pids deck} ->
-            fromMaybe (Left EmptyDeck) $ do
-              (playerHands, deck') <- dealNTo 2 (Map.keys pids) deck
-              (dealerHand, _) <- dealN 2 deck'
-              pure (Right $ CardsDealt playerHands dealerHand)
-          Game {state = BiddingState {}} -> Left PlayersStillBetting
-          _ -> Left BadCommand
-        PlayerHit pid -> \case
-          Game {state = PlayerTurnState _ players _} | not (Map.member pid players) -> Left PlayerNotFound
-          Game {state = PlayerTurnState deck _ _} ->
-            case drawCard deck of
-              Just (card, _) -> Right (PlayerHitCard pid card)
-              Nothing -> Left EmptyDeck
-          _ -> Left BadCommand
-        PlayerStand pid -> \case
-          Game {state = PlayerTurnState _ players _} | not (Map.member pid players) -> Left PlayerNotFound
-          Game {state = PlayerTurnState {}} -> Right (PlayerStood pid)
-          _ -> Left BadCommand
-        DealerPlay -> \case
-          Game {state = DealerTurnState deck _ dealer} ->
-            -- Dealer's turn: draw cards until the hand has at least 17 points
-            let dealerTurn :: Hand -> Deck -> Hand
-                dealerTurn hand deck0
-                  | score hand >= 17 = hand
-                  | otherwise = case drawCard deck0 of
-                      Nothing -> hand
-                      Just (card, newDeck) -> dealerTurn (addCard card hand) newDeck
-                dealer' = dealerTurn dealer deck
-             in Right (DealerPlayed dealer')
-          Game {state = PlayerTurnState {}} -> Left PlayersStillPlaying
-          _ -> Left BadCommand
-        ResolveRound -> \case
-          Game {state = ResolvingState players dealer} ->
-            let compareHand Player {hand, bet}
-                  | isBust hand = Loss (current bet)
-                  | isBust dealer = Win (current bet)
-                  | otherwise = case compare (score hand) (score dealer) of
-                      LT -> Loss (current bet)
-                      GT -> Win (current bet)
-                      EQ -> Push
-                adjustChips bet = \case
-                  Win win -> bet {current = 0, chips = chips bet + win}
-                  Loss loss -> bet {current = 0, chips = chips bet - loss}
-                  Push -> bet
-                summary player =
-                  let outcome = compareHand player
-                   in (outcome, adjustChips (bet player) outcome)
-                result = fmap summary players
-             in Right (RoundResolved result)
-          _ -> Left BadCommand
-        RestartGame -> \case
-          Game {state = ResultState {}} -> Right GameRestarted
-          _ -> Left GameAlreadyStarted
-        ExitGame -> const (Right GameExited),
-      evolve = \game@Game {stdGen, state} event -> case (state, event) of
-        (LobbyState players, Right (PlayerJoined pid)) ->
-          let players' = Map.insert pid (Bet 0 100) players
-           in EvolutionResult game {state = LobbyState players'}
-        (LobbyState players, Right (PlayerLeft pid)) ->
-          let players' = Map.delete pid players
-           in EvolutionResult game {state = LobbyState players'}
-        (LobbyState players, Right GameStarted) ->
-          EvolutionResult game {state = BiddingState players}
-        (BiddingState bets, Right (BetPlaced pid amt)) ->
-          let bets' = Map.adjust (\b -> b {current = amt}) pid bets
-              allBetsAreIn = all ((> 0) . current) bets'
-              deck = mkDeck stdGen
-           in if allBetsAreIn
-                then EvolutionResult game {state = DealingState bets' deck}
-                else EvolutionResult game {state = BiddingState bets'}
-        (DealingState bets _, Right (CardsDealt _ dealer))
-          | score dealer == 21 ->
-              let players = fmap (\b -> Player emptyHand b False) bets
-               in EvolutionResult game {state = ResolvingState players dealer}
-        (DealingState bets deck, Right (CardsDealt playerHands dealer)) ->
-          let players = Map.fromList $ fmap (\(pid, h) -> (pid, Player h (bets Map.! pid) False)) playerHands
-              cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealer
-              deck' = deck {drawn = drawn deck + cardsDrawn}
-           in EvolutionResult game {state = PlayerTurnState deck' players dealer}
-        (PlayerTurnState deck players dealer, Right (PlayerHitCard pid card)) ->
-          let deck' = deck {drawn = drawn deck + 1}
-              players' = Map.adjust (\p -> p {hand = addCard card (hand p)}) pid players
-              allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
-           in if
-                | all (isBust . hand) players' -> EvolutionResult game {state = ResolvingState players' dealer}
-                | allBustOrStand -> EvolutionResult game {state = DealerTurnState deck' players' dealer}
-                | otherwise -> EvolutionResult game {state = PlayerTurnState deck' players' dealer}
-        (PlayerTurnState deck players dealer, Right (PlayerStood pid)) ->
-          let players' = Map.adjust (\p -> p {hasStood = True}) pid players
-              allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
-           in if allBustOrStand
-                then EvolutionResult game {state = DealerTurnState deck players dealer}
-                else EvolutionResult game {state = PlayerTurnState deck players' dealer}
-        (DealerTurnState _ players _, Right (DealerPlayed dealer)) ->
-          EvolutionResult game {state = ResolvingState players dealer}
-        (ResolvingState {}, Right (RoundResolved outcomes)) ->
-          EvolutionResult game {state = ResultState (fmap snd outcomes)}
-        (ResultState bets, Right GameRestarted) ->
-          EvolutionResult (updateR game {state = LobbyState bets})
-        (ResultState {}, Right GameExited) -> EvolutionResult game {state = ExitedState}
-        (_, _) -> EvolutionResult game
+        JoinGame pid -> decideJoinGame pid
+        LeaveGame pid -> decideLeaveGame pid
+        StartGame -> decideStartGame
+        PlaceBet pid amt -> decidePlaceBet pid amt
+        DealInitialCards -> decideDealInitialCards
+        PlayerHit pid -> decidePlayerHit pid
+        PlayerStand pid -> decidePlayerStand pid
+        DealerPlay -> decideDealerPlay
+        ResolveRound -> decideResolveRound
+        RestartGame -> decideRestartGame
+        ExitGame -> decideExitGame,
+      evolve = \game -> \case
+        Left _ -> EvolutionResult game
+        Right event -> case state game of
+          LobbyState {} -> evolveLobby game event
+          BiddingState {} -> evolveBidding game event
+          DealingState {} -> evolveDealing game event
+          PlayerTurnState {} -> evolvePlayerTurn game event
+          DealerTurnState {} -> evolveDealerTurn game event
+          ResolvingState {} -> evolveResolution game event
+          ResultState {} -> evolveResult game event
+          ExitedState {} -> EvolutionResult game
     }
 
 baseMachine :: StdGen -> BaseMachine GameTopology Command (Either GameError Event)
