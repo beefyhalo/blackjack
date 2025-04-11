@@ -26,7 +26,7 @@ import Crem.Topology
 import Data.Functor.Identity (runIdentity)
 import Data.Map qualified as Map
 import System.IO.Error (catchIOError)
-import System.Random (StdGen, mkStdGen, split)
+import System.Random (StdGen, split)
 import "singletons-base" Data.Singletons.Base.TH
 
 $( singletons
@@ -123,12 +123,12 @@ data Event
     )
 
 data Game (vertex :: GameVertex) = Game
-  { rng :: StdGen,
+  { stdGen :: StdGen,
     state :: GameState vertex
   }
 
 updateR :: Game v -> Game v
-updateR game = game {rng = let (_, g') = split (rng game) in g'}
+updateR game = game {stdGen = let (_, g') = split (stdGen game) in g'}
 
 data GameState (vertex :: GameVertex) where
   LobbyState :: Map.Map PlayerId Bet -> GameState 'InLobby
@@ -174,8 +174,8 @@ decider initialState =
           Game {state = BiddingState {}} -> Left MalsizedBet
           _ -> Left BadCommand
         DealInitialCards -> \case
-          Game {rng, state = DealingState pids} ->
-            let deck = mkShuffledDeck rng
+          Game {stdGen, state = DealingState pids} ->
+            let deck = mkShuffledDeck stdGen
                 (playerHands, Deck rest) = dealNTo 2 (Map.keys pids) deck
                 (dealerH, _) = splitAt 2 rest
              in Right $ CardsDealt playerHands (Hand dealerH)
@@ -210,7 +210,7 @@ decider initialState =
           Game {state = ResultState {}} -> Right GameRestarted
           _ -> Left GameAlreadyStarted
         ExitGame -> const (Right GameExited),
-      evolve = \game@Game {rng, state} event -> case (state, event) of
+      evolve = \game@Game {stdGen, state} event -> case (state, event) of
         (LobbyState players, Right (PlayerJoined pid)) ->
           let players' = Map.insert pid (Bet 0 100) players
            in EvolutionResult game {state = LobbyState players'}
@@ -231,7 +231,7 @@ decider initialState =
                in EvolutionResult game {state = ResultState bets outcomes}
         (DealingState bets, Right (CardsDealt playerHands dealer)) ->
           let -- Start from full deck
-              Deck deck = mkShuffledDeck rng
+              Deck deck = mkShuffledDeck stdGen
               -- Remove all cards dealt to players and dealer
               dealtCards = length bets * 2 + 2
               deck' = Deck (drop dealtCards deck)
@@ -273,11 +273,11 @@ decider initialState =
         (_, _) -> EvolutionResult game
     }
 
-baseMachine :: BaseMachine GameTopology Command (Either GameError Event)
-baseMachine = deciderMachine (decider (InitialState (Game (mkStdGen 42) (LobbyState mempty))))
+baseMachine :: StdGen -> BaseMachine GameTopology Command (Either GameError Event)
+baseMachine g = deciderMachine (decider (InitialState (Game g (LobbyState mempty))))
 
-stateMachine :: StateMachine Command (Either GameError Event)
-stateMachine = Basic baseMachine
+stateMachine :: StdGen -> StateMachine Command (Either GameError Event)
+stateMachine g = Basic (baseMachine g)
 
 gameLoop :: StateMachineT Identity Command (Either GameError Event) -> IO ()
 gameLoop machine = do

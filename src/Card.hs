@@ -1,5 +1,6 @@
 module Card (module Card) where
 
+import List.Shuffle (shuffle_)
 import System.Random (StdGen)
 
 newtype Deck = Deck [Card]
@@ -27,7 +28,7 @@ fullDeck :: Deck
 fullDeck = Deck $ liftA2 Card [minBound .. maxBound] [minBound .. maxBound]
 
 mkShuffledDeck :: StdGen -> Deck
-mkShuffledDeck g = fullDeck
+mkShuffledDeck = let Deck deck = fullDeck in Deck . shuffle_ deck
 
 value :: Rank -> Int
 value r

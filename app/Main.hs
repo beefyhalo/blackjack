@@ -1,6 +1,9 @@
 module Main (main) where
 
 import FSM
+import System.Random (initStdGen)
 
 main :: IO ()
-main = gameLoop stateMachine
+main = do
+  stdGen <- initStdGen
+  gameLoop (stateMachine stdGen)

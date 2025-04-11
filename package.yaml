@@ -43,6 +43,7 @@ library:
   - crem
   - singletons-base
   - containers
+  - list-shuffle
 
 executables:
   blackjack-exe:
@@ -54,6 +55,7 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - blackjack
+    - random
 
 tests:
   blackjack-test:

@@ -39,6 +39,7 @@ library
       base >=4.7 && <5
     , containers
     , crem
+    , list-shuffle
     , mtl
     , random
     , singletons-base
@@ -56,6 +57,7 @@ executable blackjack-exe
   build-depends:
       base >=4.7 && <5
     , blackjack
+    , random
   default-language: GHC2021
 
 test-suite blackjack-test
