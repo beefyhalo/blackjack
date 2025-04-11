@@ -44,11 +44,11 @@ data Command
   | DealInitialCards
   | PlayerHit PlayerId
   | PlayerStand PlayerId
+  | PlayerDoubleDown PlayerId
   | DealerPlay
   | ResolveRound
   | RestartGame
   | ExitGame
-  -- \| PlayerDoubleDown PlayerId
   -- \| PlayerSplit PlayerId
   -- \| PlayerSurrender PlayerId
   deriving (Read)
@@ -61,13 +61,13 @@ data Event
   | CardsDealt [(PlayerId, Hand)] Hand
   | PlayerHitCard PlayerId Card
   | PlayerStood PlayerId
+  | PlayerDoubledDown PlayerId Card
   | DealerPlayed Hand
   | RoundResolved (Map.Map PlayerId (Outcome, Bet))
   | GameRestarted
   | GameExited
   deriving
-    ( -- | PlayerDoubledDown PlayerId Card
-      -- | PlayerSplitHand PlayerId Card Card
+    ( -- | PlayerSplitHand PlayerId Card Card
       -- | PlayerSurrendered PlayerId
       Eq,
       Show

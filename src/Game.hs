@@ -83,6 +83,7 @@ decider initialState =
         DealInitialCards -> decideDealInitialCards
         PlayerHit pid -> decidePlayerHit pid
         PlayerStand pid -> decidePlayerStand pid
+        PlayerDoubleDown pid -> decidePlayerDoubleDown pid
         DealerPlay -> decideDealerPlay
         ResolveRound -> decideResolveRound
         RestartGame -> decideRestartGame
@@ -153,6 +154,16 @@ decidePlayerStand :: PlayerId -> Game vertex -> Decision
 decidePlayerStand pid = \case
   Game {state = PlayerTurnState _ players _} | not (Map.member pid players) -> Left PlayerNotFound
   Game {state = PlayerTurnState {}} -> Right (PlayerStood pid)
+  _ -> Left BadCommand
+
+decidePlayerDoubleDown :: PlayerId -> Game vertex -> Decision
+decidePlayerDoubleDown pid = \case
+  Game {state = PlayerTurnState _ players _} | not (Map.member pid players) -> Left PlayerNotFound
+  Game {state = PlayerTurnState _ players _} | let Player {bet} = players Map.! pid, current bet * 2 > chips bet -> Left MalsizedBet
+  Game {state = PlayerTurnState deck _ _} ->
+    case drawCard deck of
+      Just (card, _) -> Right (PlayerDoubledDown pid card)
+      Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
 decideDealerPlay :: Game vertex -> Decision
@@ -239,20 +250,28 @@ evolveDealing game@Game {state = DealingState bets deck} = \case
 evolvePlayerTurn :: Game PlayerTurn -> Event -> EvolutionResult GameTopology Game PlayerTurn output
 evolvePlayerTurn game@Game {state = PlayerTurnState deck players dealer} = \case
   PlayerHitCard pid card ->
-    let deck' = deck {drawn = drawn deck + 1}
-        players' = Map.adjust (\p -> p {hand = addCard card (hand p)}) pid players
-        allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
-     in if
-          | all (isBust . hand) players' -> EvolutionResult game {state = ResolvingState players' dealer}
-          | allBustOrStand -> EvolutionResult game {state = DealerTurnState deck' players' dealer}
-          | otherwise -> EvolutionResult game {state = PlayerTurnState deck' players' dealer}
+    let adjustPlayer p = p {hand = addCard card (hand p)}
+     in nextState pid adjustPlayer
   PlayerStood pid ->
     let players' = Map.adjust (\p -> p {hasStood = True}) pid players
         allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
      in if allBustOrStand
-          then EvolutionResult game {state = DealerTurnState deck players dealer}
+          then EvolutionResult game {state = DealerTurnState deck players' dealer}
           else EvolutionResult game {state = PlayerTurnState deck players' dealer}
+  PlayerDoubledDown pid card ->
+    let adjustPlayer p@Player {hand, bet} =
+          p {hand = addCard card hand, bet = bet {current = current bet * 2}, hasStood = True}
+     in nextState pid adjustPlayer
   _ -> EvolutionResult game
+  where
+    nextState pid adjustPlayer =
+      let deck' = deck {drawn = drawn deck + 1}
+          players' = Map.adjust adjustPlayer pid players
+          allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
+       in if
+            | all (isBust . hand) players' -> EvolutionResult game {state = ResolvingState players' dealer}
+            | allBustOrStand -> EvolutionResult game {state = DealerTurnState deck' players' dealer}
+            | otherwise -> EvolutionResult game {state = PlayerTurnState deck' players' dealer}
 
 evolveDealerTurn :: Game DealerTurn -> Event -> EvolutionResult GameTopology Game DealerTurn output
 evolveDealerTurn game@Game {state = DealerTurnState _ players _} = \case
