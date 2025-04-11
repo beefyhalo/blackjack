@@ -63,8 +63,7 @@ newtype PlayerId = PlayerId String deriving (Eq, Ord, Show, Read)
 type Chips = Int
 
 data Player = Player
-  { playerId :: PlayerId,
-    hand :: Hand,
+  { hand :: Hand,
     bet :: Bet,
     hasStood :: Bool
   }
@@ -251,7 +250,7 @@ decider initialState =
               -- Remove all cards dealt to players and dealer
               dealtCards = length bets * 2 + 2
               deck' = Deck (drop dealtCards deck)
-              players = Map.fromList $ fmap (\(pid, h) -> (pid, Player pid h (bets Map.! pid) False)) playerHands
+              players = Map.fromList $ fmap (\(pid, h) -> (pid, Player h (bets Map.! pid) False)) playerHands
            in EvolutionResult game {state = PlayerTurnState deck' players dealer}
         (PlayerTurnState (Deck (_ : rest)) players dealer, Right (PlayerHitCard pid card)) ->
           let players' = Map.adjust (\p -> p {hand = addCard card (hand p)}) pid players
