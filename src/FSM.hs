@@ -215,10 +215,11 @@ decider initialState =
                       GT -> Win (current bet)
                       EQ -> Push
                 outcomes = fmap compareHand players
-                bets = Map.mapWithKey (\pid Player {bet} -> adjustChips (outcomes Map.! pid) bet) players
-                adjustChips (Win win) bet = bet {current = 0, chips = chips bet + 2 * win}
-                adjustChips (Loss loss) bet = bet {current = 0, chips = chips bet - loss}
-                adjustChips Push bet = bet
+                bets = Map.mapWithKey (\pid Player {bet} -> adjustChips bet (outcomes Map.! pid)) players
+                adjustChips bet = \case
+                  Win win -> bet {current = 0, chips = chips bet + 2 * win}
+                  Loss loss -> bet {current = 0, chips = chips bet - loss}
+                  Push -> bet
              in Right (RoundResolved bets outcomes)
           _ -> Left BadCommand
         RestartGame -> \case
