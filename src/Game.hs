@@ -18,7 +18,6 @@ import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Domain
-import Domain (LossReason (OutscoredByDealer))
 import System.Random (StdGen, split)
 import "singletons-base" Data.Singletons.Base.TH hiding (Decision)
 
@@ -28,6 +27,8 @@ $( singletons
          = InLobby
          | AwaitingBets
          | DealingCards
+         | OfferingInsurance
+         | OpeningTurn
          | PlayerTurn
          | DealerTurn
          | Resolving
@@ -40,7 +41,9 @@ $( singletons
          Topology
            [ (InLobby, [AwaitingBets]),
              (AwaitingBets, [DealingCards]),
-             (DealingCards, [PlayerTurn, Resolving]),
+             (DealingCards, [OfferingInsurance, OpeningTurn]),
+             (OfferingInsurance, [OpeningTurn, Resolving]),
+             (OpeningTurn, [PlayerTurn, DealerTurn, Resolving]),
              (PlayerTurn, [DealerTurn, Resolving]),
              (DealerTurn, [Resolving]),
              (Resolving, [Result]),
@@ -63,6 +66,8 @@ data GameState (vertex :: GameVertex) where
   LobbyState :: Map.Map PlayerId Bet -> GameState 'InLobby
   BiddingState :: Map.Map PlayerId Bet -> GameState 'AwaitingBets
   DealingState :: Map.Map PlayerId Bet -> Deck -> GameState 'DealingCards
+  OfferingInsuranceState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'OfferingInsurance
+  OpeningTurnState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'OpeningTurn
   PlayerTurnState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'PlayerTurn
   DealerTurnState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'DealerTurn
   ResolvingState :: Map.Map PlayerId Player -> Hand -> GameState 'Resolving
@@ -85,6 +90,7 @@ decider initialState =
         Hit pid -> decideHit pid
         Stand pid -> decideStand pid
         DoubleDown pid -> decideDoubleDown pid
+        -- TakeInsurance pid -> decideTakeInsurance pid
         DealerPlay -> decideDealerPlay
         ResolveRound -> decideResolveRound
         RestartGame -> decideRestartGame
@@ -96,6 +102,8 @@ decider initialState =
                 LobbyState {} -> evolveLobby
                 BiddingState {} -> evolveBidding
                 DealingState {} -> evolveDealing
+                OfferingInsuranceState {} -> undefined -- evolveOfferingInsurance
+                OpeningTurnState {} -> evolveOpeningTurn
                 PlayerTurnState {} -> evolvePlayerTurn
                 DealerTurnState {} -> evolveDealerTurn
                 ResolvingState {} -> evolveResolution
@@ -164,13 +172,12 @@ decideStand pid = \case
 
 decideDoubleDown :: PlayerId -> Game vertex -> Decision
 decideDoubleDown pid = \case
-  Game {state = PlayerTurnState _ players _}
+  Game {state = OpeningTurnState deck players _}
     | not (Map.member pid players) -> Left PlayerNotFound
-    | let Player {hand} = players Map.! pid, handSize hand > 2 -> Left PlayerAlreadyHit
     | let Player {bet} = players Map.! pid, current bet * 2 > chips bet -> Left MalsizedBet
-  Game {state = PlayerTurnState deck _ _} -> case drawCard deck of
-    Just (card, _) -> Right (PlayerDoubledDown pid card)
-    Nothing -> Left EmptyDeck
+    | otherwise -> case drawCard deck of
+        Just (card, _) -> Right (PlayerDoubledDown pid card)
+        Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
 decideDealerPlay :: Game vertex -> Decision
@@ -271,15 +278,24 @@ evolveBidding game@Game {state = BiddingState bets} = \case
 evolveDealing :: Game DealingCards -> Event -> EvolutionResult GameTopology Game DealingCards output
 evolveDealing game@Game {state = DealingState bets deck} = \case
   CardsDealt playerHands dealer
-    | isBlackjack dealer ->
-        let players = fmap newPlayer bets
-         in EvolutionResult game {state = ResolvingState players dealer}
+    -- \| isBlackjack dealer ->
+    --     let players = fmap newPlayer bets
+    --      in EvolutionResult game {state = ResolvingState players dealer}
     | otherwise ->
         let players = Map.fromList $ fmap (\(pid, hand) -> (pid, (newPlayer (bets Map.! pid)) {hand = hand})) playerHands
             cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealer
             deck' = deck {drawn = drawn deck + cardsDrawn}
-         in EvolutionResult game {state = PlayerTurnState deck' players dealer}
+         in EvolutionResult game {state = OpeningTurnState deck' players dealer}
   _ -> EvolutionResult game
+
+evolveOpeningTurn :: Game OpeningTurn -> Event -> EvolutionResult GameTopology Game OpeningTurn output
+evolveOpeningTurn game@Game {state = OpeningTurnState deck players dealer} event =
+  let result = evolvePlayerTurn game {state = PlayerTurnState deck players dealer} event
+   in case result of
+        EvolutionResult next@Game {state = DealerTurnState {}} -> EvolutionResult next
+        EvolutionResult next@Game {state = PlayerTurnState {}} -> EvolutionResult next
+        EvolutionResult next@Game {state = ResolvingState {}} -> EvolutionResult next
+        _ -> EvolutionResult game
 
 evolvePlayerTurn :: Game PlayerTurn -> Event -> EvolutionResult GameTopology Game PlayerTurn output
 evolvePlayerTurn game@Game {state = PlayerTurnState deck players dealer} = \case

@@ -39,6 +39,9 @@ data Command
   | Hit PlayerId
   | Stand PlayerId
   | DoubleDown PlayerId
+  | -- \| Split PlayerId
+    Surrender PlayerId
+  | TakeInsurance PlayerId
   | DealerPlay
   | ResolveRound
   | RestartGame
@@ -104,7 +107,6 @@ data GameError
   | BadCommand
   | MalsizedBet
   | PlayerAlreadyBet
-  | PlayerAlreadyHit
   | EmptyDeck
   | PlayersStillBetting
   | PlayersStillPlaying
