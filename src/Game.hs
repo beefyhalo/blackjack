@@ -107,28 +107,32 @@ type Decision = Either GameError Event
 
 decideJoinGame :: PlayerId -> Game vertex -> Decision
 decideJoinGame pid = \case
-  Game {state = LobbyState players} | Map.member pid players -> Left PlayerAlreadyJoined
-  Game {state = LobbyState {}} -> Right (PlayerJoined pid)
+  Game {state = LobbyState players}
+    | Map.member pid players -> Left PlayerAlreadyJoined
+    | otherwise -> Right (PlayerJoined pid)
   _ -> Left GameAlreadyStarted
 
 decideLeaveGame :: PlayerId -> Game vertex -> Decision
 decideLeaveGame pid = \case
-  Game {state = LobbyState players} | Map.member pid players -> Right (PlayerLeft pid)
-  Game {state = LobbyState {}} -> Left PlayerNotFound
+  Game {state = LobbyState players}
+    | Map.member pid players -> Right (PlayerLeft pid)
+    | otherwise -> Left PlayerNotFound
   _ -> Left GameAlreadyStarted
 
-decideStartGame :: Game v -> Decision
+decideStartGame :: Game vertex -> Decision
 decideStartGame = \case
-  Game {state = LobbyState players} | null players -> Left TooFewPlayers
-  Game {state = LobbyState {}} -> Right GameStarted
+  Game {state = LobbyState players}
+    | null players -> Left TooFewPlayers
+    | otherwise -> Right GameStarted
   _ -> Left GameAlreadyStarted
 
 decidePlaceBet :: PlayerId -> Chips -> Game vertex -> Decision
 decidePlaceBet pid amt = \case
-  Game {state = BiddingState bets} | not (Map.member pid bets) -> Left PlayerNotFound
-  Game {state = BiddingState bets} | current (bets Map.! pid) /= 0 -> Left PlayerAlreadyBet
-  Game {state = BiddingState bets} | amt > 0 && amt <= chips (bets Map.! pid) -> Right (BetPlaced pid amt)
-  Game {state = BiddingState {}} -> Left MalsizedBet
+  Game {state = BiddingState bets}
+    | not (Map.member pid bets) -> Left PlayerNotFound
+    | current (bets Map.! pid) /= 0 -> Left PlayerAlreadyBet
+    | amt > 0 && amt <= chips (bets Map.! pid) -> Right (BetPlaced pid amt)
+    | otherwise -> Left MalsizedBet
   _ -> Left BadCommand
 
 decideDealInitialCards :: Game vertex -> Decision
@@ -143,27 +147,29 @@ decideDealInitialCards = \case
 
 decidePlayerHit :: PlayerId -> Game vertex -> Decision
 decidePlayerHit pid = \case
-  Game {state = PlayerTurnState _ players _} | not (Map.member pid players) -> Left PlayerNotFound
-  Game {state = PlayerTurnState deck _ _} ->
-    case drawCard deck of
-      Just (card, _) -> Right (PlayerHitCard pid card)
-      Nothing -> Left EmptyDeck
+  Game {state = PlayerTurnState deck players _}
+    | not (Map.member pid players) -> Left PlayerNotFound
+    | otherwise -> case drawCard deck of
+        Just (card, _) -> Right (PlayerHitCard pid card)
+        Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
 decidePlayerStand :: PlayerId -> Game vertex -> Decision
 decidePlayerStand pid = \case
-  Game {state = PlayerTurnState _ players _} | not (Map.member pid players) -> Left PlayerNotFound
-  Game {state = PlayerTurnState {}} -> Right (PlayerStood pid)
+  Game {state = PlayerTurnState _ players _}
+    | not (Map.member pid players) -> Left PlayerNotFound
+    | otherwise -> Right (PlayerStood pid)
   _ -> Left BadCommand
 
 decidePlayerDoubleDown :: PlayerId -> Game vertex -> Decision
 decidePlayerDoubleDown pid = \case
-  Game {state = PlayerTurnState _ players _} | not (Map.member pid players) -> Left PlayerNotFound
-  Game {state = PlayerTurnState _ players _} | let Player {bet} = players Map.! pid, current bet * 2 > chips bet -> Left MalsizedBet
-  Game {state = PlayerTurnState deck _ _} ->
-    case drawCard deck of
-      Just (card, _) -> Right (PlayerDoubledDown pid card)
-      Nothing -> Left EmptyDeck
+  Game {state = PlayerTurnState _ players _}
+    | not (Map.member pid players) -> Left PlayerNotFound
+    | let Player {hand} = players Map.! pid, handSize hand > 2 -> Left PlayerAlreadyHit
+    | let Player {bet} = players Map.! pid, current bet * 2 > chips bet -> Left MalsizedBet
+  Game {state = PlayerTurnState deck _ _} -> case drawCard deck of
+    Just (card, _) -> Right (PlayerDoubledDown pid card)
+    Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
 decideDealerPlay :: Game vertex -> Decision

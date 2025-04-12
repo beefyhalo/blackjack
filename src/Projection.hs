@@ -18,8 +18,8 @@ import GHC.Generics (Generic)
 import "singletons-base" Data.Singletons.Base.TH hiding (Sum)
 
 data Summary = Summary
-  { totalWinnings :: Sum Chips,
-    totalLoss :: Sum Chips,
+  { winnings :: Sum Chips,
+    losses :: Sum Chips,
     rounds :: Sum Int
   }
   deriving (Show, Eq, Generic)
@@ -27,13 +27,11 @@ data Summary = Summary
 
 $( singletons
      [d|
-       data ProjectionVertex
-         = SingleProjectionVertex
+       data ProjectionVertex = SingleProjectionVertex
          deriving stock (Eq, Show, Enum, Bounded)
 
        projectionTopology :: Topology ProjectionVertex
-       projectionTopology =
-         Topology []
+       projectionTopology = Topology []
        |]
  )
 
@@ -49,8 +47,8 @@ gameProjection =
       action = \(SingleProjectionState summary) -> \case
         RoundResolved outcomes ->
           let winnings = foldMap (\case (Win chips, _) -> Sum chips; _ -> 0) outcomes
-              loss = foldMap (\case (Loss chips, _) -> Sum chips; _ -> 0) outcomes
-              summary' = summary <> Summary winnings loss 1
+              losses = foldMap (\case (Loss chips, _) -> Sum chips; _ -> 0) outcomes
+              summary' = summary <> Summary winnings losses 1
            in pureResult summary' (SingleProjectionState summary')
         _ -> pureResult summary (SingleProjectionState summary)
     }

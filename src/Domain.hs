@@ -81,6 +81,7 @@ data GameError
   | BadCommand
   | MalsizedBet
   | PlayerAlreadyBet
+  | PlayerAlreadyHit
   | EmptyDeck
   | PlayersStillBetting
   | PlayersStillPlaying
