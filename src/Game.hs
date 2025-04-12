@@ -18,7 +18,6 @@ import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe, isJust)
 import Domain
-import Domain (InsuranceChoice (TookInsurance))
 import System.Random (StdGen, split)
 import "singletons-base" Data.Singletons.Base.TH hiding (Decision)
 
@@ -93,7 +92,7 @@ decider initialState =
         Hit pid -> decideHit pid
         Stand pid -> decideStand pid
         DoubleDown pid -> decideDoubleDown pid
-        Surrender pid -> undefined pid
+        Surrender pid -> decideSurrender pid
         DealerPlay -> decideDealerPlay
         ResolveRound -> decideResolveRound
         RestartGame -> decideRestartGame
@@ -197,6 +196,13 @@ decideDoubleDown pid = \case
     | otherwise -> case drawCard deck of
         Just (card, _) -> Right (PlayerDoubledDown pid card)
         Nothing -> Left EmptyDeck
+  _ -> Left BadCommand
+
+decideSurrender :: PlayerId -> Game vertex -> Decision
+decideSurrender pid = \case
+  Game {state = OpeningTurnState _ players _}
+    | not (Map.member pid players) -> Left PlayerNotFound
+    | otherwise -> Right (PlayerSurrendered pid)
   _ -> Left BadCommand
 
 decideDealerPlay :: Game vertex -> Decision
@@ -336,23 +342,23 @@ evolvePlayerTurn :: Game PlayerTurn -> Event -> EvolutionResult GameTopology Gam
 evolvePlayerTurn game@Game {state = PlayerTurnState deck players dealer} = \case
   HitCard pid card ->
     let adjustPlayer p = p {hand = addCard card (hand p)}
-     in nextState pid adjustPlayer
+     in nextState nextDeck pid adjustPlayer
   PlayerStood pid ->
-    let players' = Map.adjust (\p -> p {hasStood = True}) pid players
-        allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
-     in if allBustOrStand
-          then EvolutionResult game {state = DealerTurnState deck players' dealer}
-          else EvolutionResult game {state = PlayerTurnState deck players' dealer}
+    let adjustPlayer p = p {hasCompletedTurn = True}
+     in nextState deck pid adjustPlayer
   PlayerDoubledDown pid card ->
     let adjustPlayer p@Player {hand, bet} =
-          p {hand = addCard card hand, bet = bet {current = current bet * 2}, hasStood = True}
-     in nextState pid adjustPlayer
+          p {hand = addCard card hand, bet = bet {current = current bet * 2}, hasCompletedTurn = True}
+     in nextState nextDeck pid adjustPlayer
+  PlayerSurrendered pid ->
+    let adjustPlayer p = p {hasSurrendered = True, hasCompletedTurn = True}
+     in nextState deck pid adjustPlayer
   _ -> EvolutionResult game
   where
-    nextState pid adjustPlayer =
-      let deck' = deck {drawn = drawn deck + 1}
-          players' = Map.adjust adjustPlayer pid players
-          allBustOrStand = all (\p -> isBust (hand p) || hasStood p) players'
+    nextDeck = deck {drawn = drawn deck + 1}
+    nextState deck' pid adjustPlayer =
+      let players' = Map.adjust adjustPlayer pid players
+          allBustOrStand = all (\p -> isBust (hand p) || hasCompletedTurn p) players'
        in if
             | all (isBust . hand) players' -> EvolutionResult game {state = ResolvingState players' dealer}
             | allBustOrStand -> EvolutionResult game {state = DealerTurnState deck' players' dealer}

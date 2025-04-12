@@ -15,7 +15,7 @@ newtype PlayerId = PlayerId String
 data Player = Player
   { hand :: Hand,
     bet :: Bet,
-    hasStood :: Bool,
+    hasCompletedTurn :: Bool,
     insurance :: Maybe InsuranceChoice,
     hasSurrendered :: Bool
   }
@@ -71,13 +71,13 @@ data Event
   | HitCard PlayerId Card
   | PlayerStood PlayerId
   | PlayerDoubledDown PlayerId Card
+  | PlayerSurrendered PlayerId
   | DealerPlayed Dealer
   | RoundResolved DealerOutcome (Map.Map PlayerId ResolvedResult)
   | GameRestarted
   | GameExited
   deriving
     ( -- | PlayerSplitHand PlayerId Card Card
-      -- | PlayerSurrendered PlayerId
       Eq,
       Show
     )
