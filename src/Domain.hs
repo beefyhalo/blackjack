@@ -36,15 +36,13 @@ data Command
   | StartGame
   | PlaceBet PlayerId Chips
   | DealInitialCards
-  | PlayerHit PlayerId
-  | PlayerStand PlayerId
-  | PlayerDoubleDown PlayerId
+  | Hit PlayerId
+  | Stand PlayerId
+  | DoubleDown PlayerId
   | DealerPlay
   | ResolveRound
   | RestartGame
   | ExitGame
-  -- \| PlayerSplit PlayerId
-  -- \| PlayerSurrender PlayerId
   deriving (Read)
 
 data Event
@@ -53,7 +51,7 @@ data Event
   | GameStarted
   | BetPlaced PlayerId Chips
   | CardsDealt [(PlayerId, Hand)] Hand
-  | PlayerHitCard PlayerId Card
+  | HitCard PlayerId Card
   | PlayerStood PlayerId
   | PlayerDoubledDown PlayerId Card
   | DealerPlayed Hand

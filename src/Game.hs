@@ -82,9 +82,9 @@ decider initialState =
         StartGame -> decideStartGame
         PlaceBet pid amt -> decidePlaceBet pid amt
         DealInitialCards -> decideDealInitialCards
-        PlayerHit pid -> decidePlayerHit pid
-        PlayerStand pid -> decidePlayerStand pid
-        PlayerDoubleDown pid -> decidePlayerDoubleDown pid
+        Hit pid -> decideHit pid
+        Stand pid -> decideStand pid
+        DoubleDown pid -> decideDoubleDown pid
         DealerPlay -> decideDealerPlay
         ResolveRound -> decideResolveRound
         RestartGame -> decideRestartGame
@@ -146,24 +146,24 @@ decideDealInitialCards = \case
   Game {state = BiddingState {}} -> Left PlayersStillBetting
   _ -> Left BadCommand
 
-decidePlayerHit :: PlayerId -> Game vertex -> Decision
-decidePlayerHit pid = \case
+decideHit :: PlayerId -> Game vertex -> Decision
+decideHit pid = \case
   Game {state = PlayerTurnState deck players _}
     | not (Map.member pid players) -> Left PlayerNotFound
     | otherwise -> case drawCard deck of
-        Just (card, _) -> Right (PlayerHitCard pid card)
+        Just (card, _) -> Right (HitCard pid card)
         Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
-decidePlayerStand :: PlayerId -> Game vertex -> Decision
-decidePlayerStand pid = \case
+decideStand :: PlayerId -> Game vertex -> Decision
+decideStand pid = \case
   Game {state = PlayerTurnState _ players _}
     | not (Map.member pid players) -> Left PlayerNotFound
     | otherwise -> Right (PlayerStood pid)
   _ -> Left BadCommand
 
-decidePlayerDoubleDown :: PlayerId -> Game vertex -> Decision
-decidePlayerDoubleDown pid = \case
+decideDoubleDown :: PlayerId -> Game vertex -> Decision
+decideDoubleDown pid = \case
   Game {state = PlayerTurnState _ players _}
     | not (Map.member pid players) -> Left PlayerNotFound
     | let Player {hand} = players Map.! pid, handSize hand > 2 -> Left PlayerAlreadyHit
@@ -283,7 +283,7 @@ evolveDealing game@Game {state = DealingState bets deck} = \case
 
 evolvePlayerTurn :: Game PlayerTurn -> Event -> EvolutionResult GameTopology Game PlayerTurn output
 evolvePlayerTurn game@Game {state = PlayerTurnState deck players dealer} = \case
-  PlayerHitCard pid card ->
+  HitCard pid card ->
     let adjustPlayer p = p {hand = addCard card (hand p)}
      in nextState pid adjustPlayer
   PlayerStood pid ->
