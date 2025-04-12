@@ -16,8 +16,9 @@ import Crem.Decider (Decider (..), EvolutionResult (EvolutionResult), deciderMac
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
 import Data.Map qualified as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Domain
+import Domain (InsuranceChoice (TookInsurance))
 import System.Random (StdGen, split)
 import "singletons-base" Data.Singletons.Base.TH hiding (Decision)
 
@@ -66,11 +67,11 @@ data GameState (vertex :: GameVertex) where
   LobbyState :: Map.Map PlayerId Bet -> GameState 'InLobby
   BiddingState :: Map.Map PlayerId Bet -> GameState 'AwaitingBets
   DealingState :: Map.Map PlayerId Bet -> Deck -> GameState 'DealingCards
-  OfferingInsuranceState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'OfferingInsurance
-  OpeningTurnState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'OpeningTurn
-  PlayerTurnState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'PlayerTurn
-  DealerTurnState :: Deck -> Map.Map PlayerId Player -> Hand -> GameState 'DealerTurn
-  ResolvingState :: Map.Map PlayerId Player -> Hand -> GameState 'Resolving
+  OfferingInsuranceState :: Deck -> Map.Map PlayerId Player -> Dealer -> GameState 'OfferingInsurance
+  OpeningTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> GameState 'OpeningTurn
+  PlayerTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> GameState 'PlayerTurn
+  DealerTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> GameState 'DealerTurn
+  ResolvingState :: Map.Map PlayerId Player -> Dealer -> GameState 'Resolving
   ResultState :: Map.Map PlayerId Bet -> GameState 'Result
   ExitedState :: GameState 'GameOver
 
@@ -87,10 +88,12 @@ decider initialState =
         StartGame -> decideStartGame
         PlaceBet pid amt -> decidePlaceBet pid amt
         DealInitialCards -> decideDealInitialCards
+        TakeInsurance pid -> decideTakeInsurance pid
+        RejectInsurance pid -> decideRejectInsurance pid
         Hit pid -> decideHit pid
         Stand pid -> decideStand pid
         DoubleDown pid -> decideDoubleDown pid
-        -- TakeInsurance pid -> decideTakeInsurance pid
+        Surrender pid -> undefined pid
         DealerPlay -> decideDealerPlay
         ResolveRound -> decideResolveRound
         RestartGame -> decideRestartGame
@@ -102,7 +105,7 @@ decider initialState =
                 LobbyState {} -> evolveLobby
                 BiddingState {} -> evolveBidding
                 DealingState {} -> evolveDealing
-                OfferingInsuranceState {} -> undefined -- evolveOfferingInsurance
+                OfferingInsuranceState {} -> evolveOfferingInsurance
                 OpeningTurnState {} -> evolveOpeningTurn
                 PlayerTurnState {} -> evolvePlayerTurn
                 DealerTurnState {} -> evolveDealerTurn
@@ -150,8 +153,24 @@ decideDealInitialCards = \case
     fromMaybe (Left EmptyDeck) do
       (playerHands, deck') <- dealNTo 2 (Map.keys pids) deck
       (dealerHand, _) <- dealN 2 deck'
-      pure (Right $ CardsDealt playerHands dealerHand)
+      pure (Right $ CardsDealt playerHands (Dealer dealerHand))
   Game {state = BiddingState {}} -> Left PlayersStillBetting
+  _ -> Left BadCommand
+
+decideTakeInsurance :: PlayerId -> Game vertex -> Decision
+decideTakeInsurance pid = \case
+  Game {state = OfferingInsuranceState _ players _}
+    | not (Map.member pid players) -> Left PlayerNotFound
+    | isJust (insurance (players Map.! pid)) -> Left PlayerAlreadyInsured
+    | otherwise -> Right (PlayerTookInsurance pid)
+  _ -> Left BadCommand
+
+decideRejectInsurance :: PlayerId -> Game vertex -> Decision
+decideRejectInsurance pid = \case
+  Game {state = OfferingInsuranceState _ players _}
+    | not (Map.member pid players) -> Left PlayerNotFound
+    | isJust (insurance (players Map.! pid)) -> Left PlayerAlreadyInsured
+    | otherwise -> Right (PlayerDeclinedInsurance pid)
   _ -> Left BadCommand
 
 decideHit :: PlayerId -> Game vertex -> Decision
@@ -189,12 +208,12 @@ decideDealerPlay = \case
   _ -> Left BadCommand
   where
     -- Draw cards until the hand has at least 17 points
-    dealerTurn :: Hand -> Deck -> Hand
-    dealerTurn hand deck
-      | score hand >= 17 = hand
+    dealerTurn :: Dealer -> Deck -> Dealer
+    dealerTurn dealer@(Dealer hand) deck
+      | score hand >= 17 = dealer
       | otherwise = case drawCard deck of
-          Nothing -> hand
-          Just (card, newDeck) -> dealerTurn (addCard card hand) newDeck
+          Nothing -> dealer
+          Just (card, newDeck) -> dealerTurn (Dealer (addCard card hand)) newDeck
 
 decideResolveRound :: Game vertex -> Decision
 decideResolveRound = \case
@@ -208,16 +227,16 @@ decideResolveRound = \case
      in Right (RoundResolved dealerOutcome result)
   _ -> Left BadCommand
   where
-    resolveDealer :: Hand -> DealerOutcome
-    resolveDealer dealer
-      | isBlackjack dealer = DealerBlackjack
-      | isBust dealer = DealerBust
-      | otherwise = DealerFinalScore (score dealer)
+    resolveDealer :: Dealer -> DealerOutcome
+    resolveDealer (Dealer dealerHand)
+      | isBlackjack dealerHand = DealerBlackjack
+      | isBust dealerHand = DealerBust
+      | otherwise = DealerFinalScore (score dealerHand)
 
     determineOutcome :: Player -> DealerOutcome -> Outcome
-    determineOutcome Player {hand, hasInsurance, hasSurrendered} = \case
+    determineOutcome Player {hand, insurance, hasSurrendered} = \case
       DealerBlackjack
-        | hasInsurance -> PlayerWins InsurancePayout -- Insurance payout if the dealer has a blackjack
+        | insurance == Just TookInsurance -> PlayerWins InsurancePayout -- Insurance payout if the dealer has a blackjack
         | isBlackjack hand -> Push
         | otherwise -> DealerWins OutscoredByDealer
       DealerBust
@@ -277,16 +296,32 @@ evolveBidding game@Game {state = BiddingState bets} = \case
 
 evolveDealing :: Game DealingCards -> Event -> EvolutionResult GameTopology Game DealingCards output
 evolveDealing game@Game {state = DealingState bets deck} = \case
-  CardsDealt playerHands dealer
-    -- \| isBlackjack dealer ->
-    --     let players = fmap newPlayer bets
-    --      in EvolutionResult game {state = ResolvingState players dealer}
+  CardsDealt playerHands dealer@(Dealer dealerHand)
+    | isAce (visibleCard dealer) ->
+        let players = fmap newPlayer bets
+         in EvolutionResult game {state = OfferingInsuranceState deck' players dealer}
     | otherwise ->
         let players = Map.fromList $ fmap (\(pid, hand) -> (pid, (newPlayer (bets Map.! pid)) {hand = hand})) playerHands
-            cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealer
-            deck' = deck {drawn = drawn deck + cardsDrawn}
          in EvolutionResult game {state = OpeningTurnState deck' players dealer}
+    where
+      deck' =
+        let cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealerHand
+         in deck {drawn = drawn deck + cardsDrawn}
   _ -> EvolutionResult game
+
+evolveOfferingInsurance :: Game OfferingInsurance -> Event -> EvolutionResult GameTopology Game OfferingInsurance output
+evolveOfferingInsurance game@Game {state = OfferingInsuranceState deck players dealer} = \case
+  PlayerTookInsurance pid ->
+    let players' = Map.adjust (\p -> p {insurance = Just TookInsurance}) pid players
+     in nextState players'
+  PlayerDeclinedInsurance pid ->
+    let players' = Map.adjust (\p -> p {insurance = Just DeclinedInsurance}) pid players
+     in nextState players'
+  _ -> EvolutionResult game
+  where
+    nextState players'
+      | all (isJust . insurance) players' = EvolutionResult game {state = OpeningTurnState deck players' dealer}
+      | otherwise = EvolutionResult game {state = OfferingInsuranceState deck players' dealer}
 
 evolveOpeningTurn :: Game OpeningTurn -> Event -> EvolutionResult GameTopology Game OpeningTurn output
 evolveOpeningTurn game@Game {state = OpeningTurnState deck players dealer} event =

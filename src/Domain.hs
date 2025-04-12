@@ -16,13 +16,24 @@ data Player = Player
   { hand :: Hand,
     bet :: Bet,
     hasStood :: Bool,
-    hasInsurance :: Bool,
+    insurance :: Maybe InsuranceChoice,
     hasSurrendered :: Bool
   }
   deriving (Show)
 
 newPlayer :: Bet -> Player
-newPlayer bet = Player emptyHand bet False False False
+newPlayer bet = Player emptyHand bet False Nothing False
+
+newtype Dealer = Dealer Hand
+  deriving (Eq, Show)
+
+visibleCard :: Dealer -> Card
+visibleCard (Dealer (Hand hand)) = head hand -- assuming dealer shows first card
+
+data InsuranceChoice
+  = TookInsurance
+  | DeclinedInsurance
+  deriving (Eq, Show)
 
 data Bet = Bet
   { current :: Chips,
@@ -42,6 +53,7 @@ data Command
   | -- \| Split PlayerId
     Surrender PlayerId
   | TakeInsurance PlayerId
+  | RejectInsurance PlayerId
   | DealerPlay
   | ResolveRound
   | RestartGame
@@ -53,11 +65,13 @@ data Event
   | PlayerLeft PlayerId
   | GameStarted
   | BetPlaced PlayerId Chips
-  | CardsDealt [(PlayerId, Hand)] Hand
+  | CardsDealt [(PlayerId, Hand)] Dealer
+  | PlayerTookInsurance PlayerId
+  | PlayerDeclinedInsurance PlayerId
   | HitCard PlayerId Card
   | PlayerStood PlayerId
   | PlayerDoubledDown PlayerId Card
-  | DealerPlayed Hand
+  | DealerPlayed Dealer
   | RoundResolved DealerOutcome (Map.Map PlayerId ResolvedResult)
   | GameRestarted
   | GameExited
@@ -107,6 +121,7 @@ data GameError
   | BadCommand
   | MalsizedBet
   | PlayerAlreadyBet
+  | PlayerAlreadyInsured
   | EmptyDeck
   | PlayersStillBetting
   | PlayersStillPlaying
@@ -177,6 +192,10 @@ data Rank = Two | Three | Four | Five | Six | Seven | Eight | Nine | Ten | Jack 
 
 allCards :: [Card]
 allCards = liftA2 Card [minBound .. maxBound] [minBound .. maxBound]
+
+isAce :: Card -> Bool
+isAce (Card Ace _) = True
+isAce _ = False
 
 value :: Rank -> Int
 value r
