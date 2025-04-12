@@ -18,6 +18,7 @@ import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Domain
+import Domain (LossReason (OutscoredByDealer))
 import System.Random (StdGen, split)
 import "singletons-base" Data.Singletons.Base.TH hiding (Decision)
 
@@ -191,24 +192,46 @@ decideDealerPlay = \case
 decideResolveRound :: Game vertex -> Decision
 decideResolveRound = \case
   Game {state = ResolvingState players dealer} ->
-    let summary player =
-          let outcome = compareHand player dealer
-           in (outcome, adjustChips (bet player) outcome)
-        result = fmap summary players
-     in Right (RoundResolved result)
+    let dealerOutcome = resolveDealer dealer
+        resolvePlayer player =
+          let outcome = determineOutcome player dealerOutcome
+              (updatedBet, netChips) = applyOutcomeToBet (bet player) outcome
+           in ResolvedResult outcome updatedBet netChips
+        result = fmap resolvePlayer players
+     in Right (RoundResolved dealerOutcome result)
   _ -> Left BadCommand
   where
-    compareHand Player {hand, bet} dealer
-      | isBust hand = Loss (current bet)
-      | isBust dealer = Win (current bet)
-      | otherwise = case compare (score hand) (score dealer) of
-          LT -> Loss (current bet)
-          GT -> Win (current bet)
-          EQ -> Push
-    adjustChips bet = \case
-      Win win -> bet {current = 0, chips = chips bet + win}
-      Loss loss -> bet {current = 0, chips = chips bet - loss}
-      Push -> bet
+    resolveDealer :: Hand -> DealerOutcome
+    resolveDealer dealer
+      | isBlackjack dealer = DealerBlackjack
+      | isBust dealer = DealerBust
+      | otherwise = DealerFinalScore (score dealer)
+
+    determineOutcome :: Player -> DealerOutcome -> Outcome
+    determineOutcome Player {hand} = \case
+      DealerBlackjack
+        | isBlackjack hand -> Push
+        | otherwise -> DealerWins OutscoredByDealer
+      DealerBust
+        | isBust hand -> DealerWins PlayerBust -- both busting = dealer wins
+        | otherwise -> PlayerWins OutscoredDealer
+      DealerFinalScore dealerScore
+        | isBlackjack hand -> PlayerWins Blackjack
+        | isBust hand -> DealerWins PlayerBust
+        | otherwise -> case compare (score hand) dealerScore of
+            GT -> PlayerWins OutscoredDealer
+            LT -> DealerWins OutscoredByDealer
+            EQ -> Push
+
+    applyOutcomeToBet :: Bet -> Outcome -> (Bet, Int)
+    applyOutcomeToBet bet = \case
+      PlayerWins Blackjack -> settleBet (payout 1.5)
+      PlayerWins _ -> settleBet (payout 1.0)
+      DealerWins _ -> settleBet (-current bet)
+      Push -> (bet {current = 0}, 0)
+      where
+        payout mult = floor @Float (fromIntegral (current bet) * mult)
+        settleBet netChips = (bet {current = 0, chips = chips bet + netChips}, netChips)
 
 decideRestartGame :: Game vertex -> Decision
 decideRestartGame = \case
@@ -243,7 +266,7 @@ evolveBidding game@Game {state = BiddingState bets} = \case
 evolveDealing :: Game DealingCards -> Event -> EvolutionResult GameTopology Game DealingCards output
 evolveDealing game@Game {state = DealingState bets deck} = \case
   CardsDealt playerHands dealer
-    | score dealer == 21 ->
+    | isBlackjack dealer ->
         let players = fmap (\b -> Player emptyHand b False) bets
          in EvolutionResult game {state = ResolvingState players dealer}
     | otherwise ->
@@ -286,7 +309,7 @@ evolveDealerTurn game@Game {state = DealerTurnState _ players _} = \case
 
 evolveResolution :: Game Resolving -> Event -> EvolutionResult GameTopology Game Resolving output
 evolveResolution game = \case
-  RoundResolved outcomes -> EvolutionResult game {state = ResultState (fmap snd outcomes)}
+  RoundResolved _ outcomes -> EvolutionResult game {state = ResultState (fmap nextBet outcomes)}
   _ -> EvolutionResult game
 
 evolveResult :: Game Result -> Event -> EvolutionResult GameTopology Game Result output

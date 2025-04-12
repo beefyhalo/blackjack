@@ -25,17 +25,6 @@ data Bet = Bet
   }
   deriving (Eq, Show)
 
-data Outcome
-  = Win Chips
-  | Loss Chips
-  | Push
-  deriving
-    ( -- | BlackjackWin Chips
-      -- | Surrendered Chips
-      Eq,
-      Show
-    )
-
 data Command
   = JoinGame PlayerId
   | LeaveGame PlayerId
@@ -63,7 +52,7 @@ data Event
   | PlayerStood PlayerId
   | PlayerDoubledDown PlayerId Card
   | DealerPlayed Hand
-  | RoundResolved (Map.Map PlayerId (Outcome, Bet))
+  | RoundResolved DealerOutcome (Map.Map PlayerId ResolvedResult)
   | GameRestarted
   | GameExited
   deriving
@@ -72,6 +61,37 @@ data Event
       Eq,
       Show
     )
+
+data DealerOutcome
+  = DealerBlackjack
+  | DealerBust
+  | DealerFinalScore Int
+  deriving (Eq, Show)
+
+data ResolvedResult = ResolvedResult
+  { outcome :: Outcome,
+    nextBet :: Bet,
+    netChips :: Int -- e.g. +50 for win, -50 for loss
+  }
+  deriving (Eq, Show)
+
+data Outcome
+  = PlayerWins WinReason
+  | DealerWins LossReason
+  | Push
+  deriving (Eq, Show)
+
+data WinReason
+  = Blackjack
+  | InsurancePayout
+  | OutscoredDealer
+  deriving (Eq, Show)
+
+data LossReason
+  = PlayerBust
+  | Surrendered
+  | OutscoredByDealer
+  deriving (Eq, Show)
 
 data GameError
   = PlayerAlreadyJoined
@@ -173,3 +193,6 @@ score (Hand hand) = adjustForAces total aces
 
 isBust :: Hand -> Bool
 isBust hand = score hand > 21
+
+isBlackjack :: Hand -> Bool
+isBlackjack hand = score hand == 21 && handSize hand == 2
