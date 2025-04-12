@@ -22,7 +22,7 @@ data Player = Player
   deriving (Show)
 
 newPlayer :: Bet -> Player
-newPlayer bet = Player emptyHand bet False False False 
+newPlayer bet = Player emptyHand bet False False False
 
 data Bet = Bet
   { current :: Chips,

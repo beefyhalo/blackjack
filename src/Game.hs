@@ -225,16 +225,17 @@ decideResolveRound = \case
             GT -> PlayerWins OutscoredDealer
             LT -> DealerWins OutscoredByDealer
             EQ -> Push
-
     applyOutcomeToBet :: Bet -> Outcome -> (Bet, Int)
     applyOutcomeToBet bet = \case
-      PlayerWins Blackjack -> settleBet (payout 1.5)
-      PlayerWins _ -> settleBet (payout 1.0)
-      DealerWins _ -> settleBet (-current bet)
+      PlayerWins InsurancePayout -> adjustBet (payout 2) -- 2:1 payout for insurance
+      PlayerWins Blackjack -> adjustBet (payout 1.5)
+      PlayerWins _ -> adjustBet (payout 1.0)
+      DealerWins Surrendered -> adjustBet (-(current bet `div` 2)) -- Player loses half their bet when surrendering
+      DealerWins _ -> adjustBet (-current bet)
       Push -> (bet {current = 0}, 0)
       where
         payout mult = floor @Float (fromIntegral (current bet) * mult)
-        settleBet netChips = (bet {current = 0, chips = chips bet + netChips}, netChips)
+        adjustBet netChips = (bet {current = 0, chips = chips bet + netChips}, netChips)
 
 decideRestartGame :: Game vertex -> Decision
 decideRestartGame = \case
