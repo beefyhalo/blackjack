@@ -208,14 +208,17 @@ decideResolveRound = \case
       | otherwise = DealerFinalScore (score dealer)
 
     determineOutcome :: Player -> DealerOutcome -> Outcome
-    determineOutcome Player {hand} = \case
+    determineOutcome Player {hand, hasInsurance, hasSurrendered} = \case
       DealerBlackjack
+        | hasInsurance -> PlayerWins InsurancePayout -- Insurance payout if the dealer has a blackjack
         | isBlackjack hand -> Push
         | otherwise -> DealerWins OutscoredByDealer
       DealerBust
-        | isBust hand -> DealerWins PlayerBust -- both busting = dealer wins
+        | hasSurrendered -> DealerWins Surrendered -- Surrender always results in dealer win
+        | isBust hand -> DealerWins PlayerBust -- Both busting = dealer wins
         | otherwise -> PlayerWins OutscoredDealer
       DealerFinalScore dealerScore
+        | hasSurrendered -> DealerWins Surrendered -- Surrender always results in dealer win
         | isBlackjack hand -> PlayerWins Blackjack
         | isBust hand -> DealerWins PlayerBust
         | otherwise -> case compare (score hand) dealerScore of
@@ -267,10 +270,10 @@ evolveDealing :: Game DealingCards -> Event -> EvolutionResult GameTopology Game
 evolveDealing game@Game {state = DealingState bets deck} = \case
   CardsDealt playerHands dealer
     | isBlackjack dealer ->
-        let players = fmap (\b -> Player emptyHand b False) bets
+        let players = fmap newPlayer bets
          in EvolutionResult game {state = ResolvingState players dealer}
     | otherwise ->
-        let players = Map.fromList $ fmap (\(pid, h) -> (pid, Player h (bets Map.! pid) False)) playerHands
+        let players = Map.fromList $ fmap (\(pid, hand) -> (pid, (newPlayer (bets Map.! pid)) {hand = hand})) playerHands
             cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealer
             deck' = deck {drawn = drawn deck + cardsDrawn}
          in EvolutionResult game {state = PlayerTurnState deck' players dealer}

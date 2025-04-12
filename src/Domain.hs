@@ -15,9 +15,14 @@ newtype PlayerId = PlayerId String
 data Player = Player
   { hand :: Hand,
     bet :: Bet,
-    hasStood :: Bool
+    hasStood :: Bool,
+    hasInsurance :: Bool,
+    hasSurrendered :: Bool
   }
   deriving (Show)
+
+newPlayer :: Bet -> Player
+newPlayer bet = Player emptyHand bet False False False 
 
 data Bet = Bet
   { current :: Chips,
