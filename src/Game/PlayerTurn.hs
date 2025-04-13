@@ -105,35 +105,35 @@ evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insuranceC
             _ -> EvolutionResult game
 
 evolvePlayerTurn :: Game PlayerTurn -> Event -> EvolutionResult GameTopology Game PlayerTurn output
-evolvePlayerTurn game@Game {state = PlayerTurnState insurance@InsuranceContext {context = GameContext deck players dealer, insurancePayouts}} = \case
+evolvePlayerTurn game@Game {state = PlayerTurnState context@InsuranceContext {context = GameContext deck players dealer, insurancePayouts}} = \case
   HitCard pid card ->
     let adjust p@Player {hands} =
           let handState = (Z.current hands) {hand = addCard card (hand handState)}
            in p {hands = Z.replace handState hands}
-     in nextState nextDeck pid adjust
+     in advanceState nextDeck pid adjust
   PlayerStood pid ->
     let adjust p@Player {hands} =
           let handState = (Z.current hands) {hasStood = True}
            in p {hands = Z.replace handState hands}
-     in nextState deck pid adjust
+     in advanceState deck pid adjust
   PlayerDoubledDown pid card ->
     let adjust p@Player {hands} =
           let handState@HandState {hand, bet} = Z.current hands
               handState' = handState {hand = addCard card hand, bet = bet * 2, hasDoubledDown = True}
            in p {hands = Z.replace handState' hands}
-     in nextState nextDeck pid adjust
+     in advanceState nextDeck pid adjust
   PlayerSurrendered pid ->
     let adjust p = p {hasSurrendered = True}
-     in nextState deck pid adjust
+     in advanceState deck pid adjust
   _ -> EvolutionResult game
   where
     nextDeck = deck {drawn = drawn deck + 1}
-    nextState deck' pid adjustPlayer =
+    advanceState deck' pid adjustPlayer =
       let moveHandFocus p@Player {hands = h} = p {hands = fromMaybe (Z.start h) (Z.right h)}
           players' = Map.adjust (moveHandFocus . adjustPlayer) pid players
        in if all hasCompletedTurn players'
             then
               if any (any hasStood . hands) players'
-                then EvolutionResult game {state = DealerTurnState insurance {context = GameContext deck' players' dealer}}
+                then EvolutionResult game {state = DealerTurnState context {context = GameContext deck' players' dealer}}
                 else EvolutionResult game {state = ResolvingState (ResolutionContext players' dealer insurancePayouts)}
-            else EvolutionResult game {state = PlayerTurnState insurance {context = GameContext deck' players' dealer}}
+            else EvolutionResult game {state = PlayerTurnState context {context = GameContext deck' players' dealer}}

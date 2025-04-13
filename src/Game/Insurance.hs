@@ -41,36 +41,36 @@ decideResolveInsurance :: Game vertex -> Decision
 decideResolveInsurance = \case
   Game {state = ResolvingInsuranceState GameContext {players, dealer = Dealer dealerHand}} ->
     let isDealerBlackjack = isBlackjack dealerHand
-        insurancePayouts = fmap (resolveInsuranceForPlayer isDealerBlackjack) players
+        insurancePayouts = fmap (payoutForInsurance isDealerBlackjack) players
      in Right (InsuranceResolved insurancePayouts)
   _ -> Left BadCommand
   where
-    resolveInsuranceForPlayer :: Bool -> Player -> InsurancePayout
-    resolveInsuranceForPlayer hasBJ Player {insurance} = case insurance of
+    payoutForInsurance :: Bool -> Player -> InsurancePayout
+    payoutForInsurance hasBJ Player {insurance} = case insurance of
       Just (TookInsurance amt)
         | hasBJ -> WonInsurancePayout (amt * 2) -- 2:1 insurance payout if the dealer has a blackjack
         | otherwise -> LostInsuranceBet amt
       _ -> NoInsurance
 
 evolveOfferingInsurance :: Game OfferingInsurance -> Event -> EvolutionResult GameTopology Game OfferingInsurance output
-evolveOfferingInsurance game@Game {state = OfferingInsuranceState activeGame@GameContext {players}} = \case
+evolveOfferingInsurance game@Game {state = OfferingInsuranceState context@GameContext {players}} = \case
   PlayerTookInsurance pid chips ->
     let players' = Map.adjust (\p -> p {insurance = Just (TookInsurance chips)}) pid players
-     in nextState players'
+     in advanceState players'
   PlayerDeclinedInsurance pid ->
     let players' = Map.adjust (\p -> p {insurance = Just DeclinedInsurance}) pid players
-     in nextState players'
+     in advanceState players'
   _ -> EvolutionResult game
   where
-    nextState players'
-      | all (isJust . insurance) players' = EvolutionResult game {state = ResolvingInsuranceState activeGame {players = players'}}
-      | otherwise = EvolutionResult game {state = OfferingInsuranceState activeGame {players = players'}}
+    advanceState players'
+      | all (isJust . insurance) players' = EvolutionResult game {state = ResolvingInsuranceState context {players = players'}}
+      | otherwise = EvolutionResult game {state = OfferingInsuranceState context {players = players'}}
 
 evolveResolvingInsurance :: Game ResolvingInsurance -> Event -> EvolutionResult GameTopology Game ResolvingInsurance output
-evolveResolvingInsurance game@Game {state = ResolvingInsuranceState activeGame@GameContext {players, dealer}} = \case
+evolveResolvingInsurance game@Game {state = ResolvingInsuranceState context@GameContext {players, dealer}} = \case
   InsuranceResolved results ->
     let players' = Map.mapWithKey settleInsurance results
-        openingContext = OpeningContext (InsuranceContext activeGame {players = players'} results) Set.empty
+        openingContext = OpeningContext (InsuranceContext context {players = players'} results) Set.empty
         Dealer dealerHand = dealer
      in if isBlackjack dealerHand
           then EvolutionResult game {state = ResolvingState (ResolutionContext players' dealer results)}
