@@ -80,20 +80,25 @@ data InsuranceChoice
   deriving (Eq, Show)
 
 newtype Bet = Bet {current :: Chips}
-  deriving (Eq, Ord, Show, Num)
+  deriving (Eq, Ord, Show, Read, Num)
+
+withValidBet :: Bet -> Chips -> (Bet -> Either GameError a) -> Either GameError a
+withValidBet bet chips k
+  | bet <= 0 || current bet > chips = Left MalsizedBet
+  | otherwise = k bet
 
 data Command
   = JoinGame Text
   | LeaveGame PlayerId
   | StartGame
-  | PlaceBet PlayerId Chips
+  | PlaceBet PlayerId Bet
   | DealInitialCards
   | Hit PlayerId
   | Stand PlayerId
   | DoubleDown PlayerId
   | Split PlayerId
   | Surrender PlayerId
-  | TakeInsurance PlayerId Chips
+  | TakeInsurance PlayerId Bet
   | RejectInsurance PlayerId
   | ResolveInsurance
   | DealerPlay
@@ -106,7 +111,7 @@ data Event
   = PlayerJoined PlayerId Text
   | PlayerLeft PlayerId
   | GameStarted
-  | BetPlaced PlayerId Chips
+  | BetPlaced PlayerId Bet
   | CardsDealt [(PlayerId, Hand)] Dealer
   | PlayerTookInsurance PlayerId Chips
   | PlayerDeclinedInsurance PlayerId

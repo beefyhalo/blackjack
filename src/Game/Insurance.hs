@@ -20,14 +20,13 @@ import Data.Set qualified as Set
 import Domain
 import GameTopology
 
-decideTakeInsurance :: PlayerId -> Chips -> Game vertex -> Decision
-decideTakeInsurance pid insuranceChips = \case
+decideTakeInsurance :: PlayerId -> Bet -> Game vertex -> Decision
+decideTakeInsurance pid sidebet = \case
   Game {state = OfferingInsuranceState GameContext {players}} ->
     withPlayer pid players \Player {playerSeat = PlayerSeat {stack}, insurance} ->
-      if
-        | isJust insurance -> Left PlayerAlreadyInsured
-        | insuranceChips <= 0 || insuranceChips > chips stack -> Left MalsizedBet
-        | otherwise -> Right (PlayerTookInsurance pid insuranceChips)
+      if isJust insurance
+        then Left PlayerAlreadyInsured
+        else withValidBet sidebet (chips stack) (Right . PlayerTookInsurance pid . current)
   _ -> Left BadCommand
 
 decideRejectInsurance :: PlayerId -> Game vertex -> Decision

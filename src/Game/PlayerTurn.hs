@@ -40,12 +40,10 @@ decideDoubleDown :: PlayerId -> Game vertex -> Decision
 decideDoubleDown pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext = InsuranceContext {context = GameContext {deck, players}}}} ->
     withPlayer pid players \Player {hands, playerSeat = PlayerSeat {stack = PlayerStack {chips}}} ->
-      let Bet bet' = bet (Z.current hands)
-       in if bet' * 2 > chips
-            then Left MalsizedBet
-            else case drawCard deck of
-              Just (card, _) -> Right (PlayerDoubledDown pid card)
-              Nothing -> Left EmptyDeck
+      let currentBet = bet (Z.current hands)
+       in withValidBet (currentBet * 2) chips \_ -> case drawCard deck of
+            Just (card, _) -> Right (PlayerDoubledDown pid card)
+            Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
 decideSurrender :: PlayerId -> Game vertex -> Decision
