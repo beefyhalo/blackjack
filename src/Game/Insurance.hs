@@ -23,7 +23,7 @@ import GameTopology
 decideTakeInsurance :: PlayerId -> Chips -> Game vertex -> Decision
 decideTakeInsurance pid insuranceChips = \case
   Game {state = OfferingInsuranceState GameContext {players}} ->
-    withPlayer pid players \Player {playerSeat = PlayerSeat {stack}, Domain.insurance} ->
+    withPlayer pid players \Player {playerSeat = PlayerSeat {stack}, insurance} ->
       if
         | isJust insurance -> Left PlayerAlreadyInsured
         | insuranceChips <= 0 || insuranceChips > chips stack -> Left MalsizedBet
@@ -33,7 +33,7 @@ decideTakeInsurance pid insuranceChips = \case
 decideRejectInsurance :: PlayerId -> Game vertex -> Decision
 decideRejectInsurance pid = \case
   Game {state = OfferingInsuranceState GameContext {players}} ->
-    withPlayer pid players \Player {Domain.insurance} ->
+    withPlayer pid players \Player {insurance} ->
       if isJust insurance then Left PlayerAlreadyInsured else Right (PlayerDeclinedInsurance pid)
   _ -> Left BadCommand
 
@@ -46,7 +46,7 @@ decideResolveInsurance = \case
   _ -> Left BadCommand
   where
     resolveInsuranceForPlayer :: Bool -> Player -> InsurancePayout
-    resolveInsuranceForPlayer hasBJ Player {Domain.insurance} = case insurance of
+    resolveInsuranceForPlayer hasBJ Player {insurance} = case insurance of
       Just (TookInsurance amt)
         | hasBJ -> WonInsurancePayout (amt * 2) -- 2:1 insurance payout if the dealer has a blackjack
         | otherwise -> LostInsuranceBet amt
@@ -55,15 +55,15 @@ decideResolveInsurance = \case
 evolveOfferingInsurance :: Game OfferingInsurance -> Event -> EvolutionResult GameTopology Game OfferingInsurance output
 evolveOfferingInsurance game@Game {state = OfferingInsuranceState activeGame@GameContext {players}} = \case
   PlayerTookInsurance pid chips ->
-    let players' = Map.adjust (\p -> p {Domain.insurance = Just (TookInsurance chips)}) pid players
+    let players' = Map.adjust (\p -> p {insurance = Just (TookInsurance chips)}) pid players
      in nextState players'
   PlayerDeclinedInsurance pid ->
-    let players' = Map.adjust (\p -> p {Domain.insurance = Just DeclinedInsurance}) pid players
+    let players' = Map.adjust (\p -> p {insurance = Just DeclinedInsurance}) pid players
      in nextState players'
   _ -> EvolutionResult game
   where
     nextState players'
-      | all (isJust . Domain.insurance) players' = EvolutionResult game {state = ResolvingInsuranceState activeGame {players = players'}}
+      | all (isJust . insurance) players' = EvolutionResult game {state = ResolvingInsuranceState activeGame {players = players'}}
       | otherwise = EvolutionResult game {state = OfferingInsuranceState activeGame {players = players'}}
 
 evolveResolvingInsurance :: Game ResolvingInsurance -> Event -> EvolutionResult GameTopology Game ResolvingInsurance output

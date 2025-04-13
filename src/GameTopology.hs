@@ -85,7 +85,7 @@ data InsuranceContext = InsuranceContext
   }
 
 data OpeningContext = OpeningContext
-  { insurance :: InsuranceContext,
+  { insuranceContext :: InsuranceContext,
     readyPlayers :: Set.Set PlayerId
   }
 

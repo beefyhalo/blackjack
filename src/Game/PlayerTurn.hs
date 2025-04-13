@@ -38,7 +38,7 @@ decideStand pid = \case
 
 decideDoubleDown :: PlayerId -> Game vertex -> Decision
 decideDoubleDown pid = \case
-  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {deck, players}}}} ->
+  Game {state = OpeningTurnState OpeningContext {insuranceContext = InsuranceContext {context = GameContext {deck, players}}}} ->
     withPlayer pid players \Player {hands, playerSeat = PlayerSeat {stack = PlayerStack {chips}}} ->
       let Bet bet' = bet (Z.current hands)
        in if bet' * 2 > chips
@@ -50,13 +50,13 @@ decideDoubleDown pid = \case
 
 decideSurrender :: PlayerId -> Game vertex -> Decision
 decideSurrender pid = \case
-  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {players}}, readyPlayers}} ->
+  Game {state = OpeningTurnState OpeningContext {insuranceContext = InsuranceContext {context = GameContext {players}}, readyPlayers}} ->
     withPlayer pid players \_ -> if Set.member pid readyPlayers then Left BadCommand else Right (PlayerSurrendered pid)
   _ -> Left BadCommand
 
 decideSplit :: PlayerId -> Game vertex -> Decision
 decideSplit pid = \case
-  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {deck, players}}, readyPlayers}} ->
+  Game {state = OpeningTurnState OpeningContext {insuranceContext = InsuranceContext {context = GameContext {deck, players}}, readyPlayers}} ->
     withPlayer pid players \_ ->
       if Set.member pid readyPlayers
         then Left CantSplitMoreThanOnce
@@ -70,13 +70,13 @@ decideSplit pid = \case
   _ -> Left BadCommand
 
 evolveOpeningTurn :: Game OpeningTurn -> Event -> EvolutionResult GameTopology Game OpeningTurn output
-evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insurance = insurance@InsuranceContext {context = GameContext deck players dealer}, readyPlayers}} event = case event of
+evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insuranceContext = context@InsuranceContext {context = GameContext deck players dealer}, readyPlayers}} event = case event of
   PlayerSplitHand pid c1 c2 d1 d2 ->
     let deck' = deck {drawn = drawn deck + 2}
         players' = Map.adjust (splitPlayerHand c1 c2 d1 d2) pid players
         readyPlayers' = Set.insert pid readyPlayers
-        insurance' = insurance {context = GameContext deck' players' dealer}
-     in EvolutionResult game {state = OpeningTurnState (OpeningContext insurance' readyPlayers')}
+        context' = context {context = GameContext deck' players' dealer}
+     in EvolutionResult game {state = OpeningTurnState (OpeningContext context' readyPlayers')}
   HitCard pid _ -> advanceState pid
   PlayerStood pid -> advanceState pid
   PlayerDoubledDown pid _ -> advanceState pid
@@ -92,15 +92,15 @@ evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insurance 
 
     advanceState :: PlayerId -> EvolutionResult GameTopology Game OpeningTurn output
     advanceState pid =
-      let intermediate = evolvePlayerTurn game {state = PlayerTurnState insurance} event
+      let intermediate = evolvePlayerTurn game {state = PlayerTurnState context} event
        in case intermediate of
             EvolutionResult next@Game {state = DealerTurnState {}} -> EvolutionResult next
             EvolutionResult next@Game {state = PlayerTurnState InsuranceContext {context = GameContext deck' players' dealer'}}
               | Set.size readyPlayers == Map.size players' -> EvolutionResult next
               | otherwise ->
                   let readyPlayers' = Set.insert pid readyPlayers
-                      insurance' = insurance {context = GameContext deck' players' dealer'}
-                   in EvolutionResult next {state = OpeningTurnState (OpeningContext insurance' readyPlayers')}
+                      context' = context {context = GameContext deck' players' dealer'}
+                   in EvolutionResult next {state = OpeningTurnState (OpeningContext context' readyPlayers')}
             EvolutionResult next@Game {state = ResolvingState {}} -> EvolutionResult next
             _ -> EvolutionResult game
 
