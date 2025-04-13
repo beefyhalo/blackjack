@@ -15,8 +15,8 @@ decideResolveRound :: Game vertex -> Decision
 decideResolveRound = \case
   Game {state = ResolvingState ResolutionContext {resolvedPlayers, resolvedDealer, resolvedInsurancePayouts}} ->
     let dealerOutcome = determineDealerOutcome resolvedDealer
-        result = Map.mapWithKey (resolvePlayer dealerOutcome resolvedInsurancePayouts) resolvedPlayers
-     in Right (RoundResolved dealerOutcome result)
+        playerSummaries = Map.mapWithKey (resolvePlayer dealerOutcome resolvedInsurancePayouts) resolvedPlayers
+     in Right (RoundResolved dealerOutcome playerSummaries)
   _ -> Left BadCommand
   where
     determineDealerOutcome :: Dealer -> DealerOutcome

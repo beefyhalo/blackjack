@@ -164,6 +164,7 @@ data GameError
   = PlayerAlreadyJoined
   | GameAlreadyStarted
   | PlayerNotFound
+  | PlayerSeatNotFound
   | TooFewPlayers
   | CantSplitMoreThanOnce
   | BadCommand

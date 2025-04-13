@@ -11,9 +11,9 @@ import GameTopology
 
 decidePlaceBet :: PlayerId -> Chips -> Game vertex -> Decision
 decidePlaceBet pid amt = \case
-  Game {state = BiddingState bets} ->
-    case Map.lookup pid bets of
-      Nothing -> Left PlayerNotFound
+  Game {state = BiddingState seats} ->
+    case Map.lookup pid seats of
+      Nothing -> Left PlayerSeatNotFound
       Just PlayerSeat {stack = PlayerStack bet chips}
         | bet > 0 -> Left PlayerAlreadyBet
         | amt <= 0 || amt > chips -> Left MalsizedBet

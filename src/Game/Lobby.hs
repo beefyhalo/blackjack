@@ -13,8 +13,8 @@ where
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
-import Domain (Event (GameStarted, PlayerJoined, PlayerLeft), GameError (GameAlreadyStarted, PlayerNotFound, TooFewPlayers), PlayerId (..), newPlayerSeat)
-import GameTopology (Decision, Game (Game, state), GameState (BiddingState, LobbyState), GameTopology, GameVertex (InLobby))
+import Domain
+import GameTopology
 
 decideJoinGame :: Text -> Game vertex -> Decision
 decideJoinGame name = \case
@@ -27,7 +27,7 @@ decideLeaveGame :: PlayerId -> Game vertex -> Decision
 decideLeaveGame pid = \case
   Game {state = LobbyState seats}
     | Map.member pid seats -> Right (PlayerLeft pid)
-    | otherwise -> Left PlayerNotFound
+    | otherwise -> Left PlayerSeatNotFound
   _ -> Left GameAlreadyStarted
 
 decideStartGame :: Game vertex -> Decision

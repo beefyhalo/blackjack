@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
@@ -22,22 +23,18 @@ import GameTopology
 decideTakeInsurance :: PlayerId -> Chips -> Game vertex -> Decision
 decideTakeInsurance pid insuranceChips = \case
   Game {state = OfferingInsuranceState GameContext {players}} ->
-    case Map.lookup pid players of
-      Nothing -> Left PlayerNotFound
-      Just Player {playerSeat = PlayerSeat {stack}, Domain.insurance} ->
-        if
-          | isJust insurance -> Left PlayerAlreadyInsured
-          | insuranceChips <= 0 || insuranceChips > chips stack -> Left MalsizedBet
-          | otherwise -> Right (PlayerTookInsurance pid insuranceChips)
+    withPlayer pid players \Player {playerSeat = PlayerSeat {stack}, Domain.insurance} ->
+      if
+        | isJust insurance -> Left PlayerAlreadyInsured
+        | insuranceChips <= 0 || insuranceChips > chips stack -> Left MalsizedBet
+        | otherwise -> Right (PlayerTookInsurance pid insuranceChips)
   _ -> Left BadCommand
 
 decideRejectInsurance :: PlayerId -> Game vertex -> Decision
 decideRejectInsurance pid = \case
   Game {state = OfferingInsuranceState GameContext {players}} ->
-    case Map.lookup pid players of
-      Nothing -> Left PlayerNotFound
-      Just Player {Domain.insurance} | isJust insurance -> Left PlayerAlreadyInsured
-      _ -> Right (PlayerDeclinedInsurance pid)
+    withPlayer pid players \Player {Domain.insurance} ->
+      if isJust insurance then Left PlayerAlreadyInsured else Right (PlayerDeclinedInsurance pid)
   _ -> Left BadCommand
 
 decideResolveInsurance :: Game vertex -> Decision

@@ -24,53 +24,49 @@ import GameTopology
 
 decideHit :: PlayerId -> Game vertex -> Decision
 decideHit pid = \case
-  Game {state = PlayerTurnState InsuranceContext {context = GameContext {deck, players}}}
-    | not (Map.member pid players) -> Left PlayerNotFound
-    | otherwise -> case drawCard deck of
-        Just (card, _) -> Right (HitCard pid card)
-        Nothing -> Left EmptyDeck
+  Game {state = PlayerTurnState InsuranceContext {context = GameContext {deck, players}}} ->
+    withPlayer pid players \_ -> case drawCard deck of
+      Just (card, _) -> Right (HitCard pid card)
+      Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
 decideStand :: PlayerId -> Game vertex -> Decision
 decideStand pid = \case
-  Game {state = PlayerTurnState InsuranceContext {context = GameContext {players}}}
-    | not (Map.member pid players) -> Left PlayerNotFound
-    | otherwise -> Right (PlayerStood pid)
+  Game {state = PlayerTurnState InsuranceContext {context = GameContext {players}}} ->
+    withPlayer pid players \_ -> Right (PlayerStood pid)
   _ -> Left BadCommand
 
 decideDoubleDown :: PlayerId -> Game vertex -> Decision
 decideDoubleDown pid = \case
-  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {deck, players}}}}
-    | not (Map.member pid players) -> Left PlayerNotFound
-    | let Player {hands, playerSeat = PlayerSeat {stack = PlayerStack {chips}}} = players Map.! pid,
-      let Bet bet' = bet (Z.current hands),
-      bet' * 2 > chips ->
-        Left MalsizedBet
-    | otherwise -> case drawCard deck of
-        Just (card, _) -> Right (PlayerDoubledDown pid card)
-        Nothing -> Left EmptyDeck
+  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {deck, players}}}} ->
+    withPlayer pid players \Player {hands, playerSeat = PlayerSeat {stack = PlayerStack {chips}}} ->
+      let Bet bet' = bet (Z.current hands)
+       in if bet' * 2 > chips
+            then Left MalsizedBet
+            else case drawCard deck of
+              Just (card, _) -> Right (PlayerDoubledDown pid card)
+              Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
 decideSurrender :: PlayerId -> Game vertex -> Decision
 decideSurrender pid = \case
-  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {players}}, readyPlayers}}
-    | not (Map.member pid players) -> Left PlayerNotFound
-    | Set.member pid readyPlayers -> Left BadCommand
-    | otherwise -> Right (PlayerSurrendered pid)
+  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {players}}, readyPlayers}} ->
+    withPlayer pid players \_ -> if Set.member pid readyPlayers then Left BadCommand else Right (PlayerSurrendered pid)
   _ -> Left BadCommand
 
 decideSplit :: PlayerId -> Game vertex -> Decision
 decideSplit pid = \case
-  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {deck, players}}, readyPlayers}}
-    | not (Map.member pid players) -> Left PlayerNotFound
-    | Set.member pid readyPlayers -> Left CantSplitMoreThanOnce
-    | otherwise -> case players Map.! pid of
-        Player {hands} | let HandState {hand} = Z.current hands -> case extractPair hand of
-          Just (c1, c2) -> maybe (Left EmptyDeck) Right do
-            (d1, deck') <- drawCard deck
-            (d2, _) <- drawCard deck'
-            Just (PlayerSplitHand pid c1 c2 d1 d2)
-          Nothing -> Left BadCommand
+  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {deck, players}}, readyPlayers}} ->
+    withPlayer pid players \_ ->
+      if Set.member pid readyPlayers
+        then Left CantSplitMoreThanOnce
+        else case players Map.! pid of
+          Player {hands} | let HandState {hand} = Z.current hands -> case extractPair hand of
+            Just (c1, c2) -> maybe (Left EmptyDeck) Right do
+              (d1, deck') <- drawCard deck
+              (d2, _) <- drawCard deck'
+              Just (PlayerSplitHand pid c1 c2 d1 d2)
+            Nothing -> Left BadCommand
   _ -> Left BadCommand
 
 evolveOpeningTurn :: Game OpeningTurn -> Event -> EvolutionResult GameTopology Game OpeningTurn output
