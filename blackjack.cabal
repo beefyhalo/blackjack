@@ -28,6 +28,15 @@ library
       Application
       Domain
       Game
+      Game.Bidding
+      Game.DealerTurn
+      Game.Dealing
+      Game.Insurance
+      Game.Lobby
+      Game.PlayerTurn
+      Game.Resolution
+      Game.Result
+      GameTopology
       Projection
   other-modules:
       Paths_blackjack

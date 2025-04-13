@@ -4,7 +4,7 @@ module Domain (module Domain) where
 
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty.Zipper qualified as Z
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Vector qualified as V
 import System.Random (StdGen, randomR)
@@ -123,8 +123,7 @@ data DealerOutcome
 data ResolvedResult = ResolvedResult
   { handResults :: NonEmpty Outcome,
     nextRoundBet :: Bet,
-    nextRoundChips :: Chips,
-    insuranceResult :: Maybe InsuranceResult
+    nextRoundChips :: Chips
   }
   deriving (Eq, Show)
 
