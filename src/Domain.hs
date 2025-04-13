@@ -109,7 +109,7 @@ data Event
   | PlayerSplitHand PlayerId Card Card Card Card
   | PlayerSurrendered PlayerId
   | DealerPlayed Dealer
-  | RoundResolved DealerOutcome (Map.Map PlayerId ResolvedResult)
+  | RoundResolved DealerOutcome (Map.Map PlayerId PlayerSummary)
   | GameRestarted
   | GameExited
   deriving (Eq, Show)
@@ -120,10 +120,12 @@ data DealerOutcome
   | DealerFinalScore Int
   deriving (Eq, Show)
 
-data ResolvedResult = ResolvedResult
-  { handResults :: NonEmpty Outcome,
+data PlayerSummary = PlayerSummary
+  { handOutcomes :: NonEmpty Outcome,
+    netChipChange :: Int,
+    finalChips :: Chips,
     nextRoundBet :: Bet,
-    nextRoundChips :: Chips
+    insuranceResult :: Maybe InsuranceResult
   }
   deriving (Eq, Show)
 

@@ -12,6 +12,7 @@ import Crem.Topology
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Domain
+import Domain (InsuranceResult)
 import System.Random (StdGen, split)
 import "singletons-base" Data.Singletons.Base.TH
 
@@ -64,10 +65,10 @@ data GameState (vertex :: GameVertex) where
   DealingState :: Map.Map PlayerId PlayerSeat -> Deck -> GameState 'DealingCards
   OfferingInsuranceState :: Deck -> Map.Map PlayerId Player -> Dealer -> GameState 'OfferingInsurance
   ResolvingInsuranceState :: Deck -> Map.Map PlayerId Player -> Dealer -> GameState 'ResolvingInsurance
-  OpeningTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> Set.Set PlayerId -> GameState 'OpeningTurn
-  PlayerTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> GameState 'PlayerTurn
-  DealerTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> GameState 'DealerTurn
-  ResolvingState :: Map.Map PlayerId Player -> Dealer -> GameState 'ResolvingHands
+  OpeningTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> Map.Map PlayerId InsuranceResult -> Set.Set PlayerId -> GameState 'OpeningTurn
+  PlayerTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> Map.Map PlayerId InsuranceResult -> GameState 'PlayerTurn
+  DealerTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> Map.Map PlayerId InsuranceResult -> GameState 'DealerTurn
+  ResolvingState :: Map.Map PlayerId Player -> Dealer -> Map.Map PlayerId InsuranceResult -> GameState 'ResolvingHands
   ResultState :: Map.Map PlayerId PlayerSeat -> GameState 'Result
   ExitedState :: GameState 'GameOver
 

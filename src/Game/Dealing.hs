@@ -29,7 +29,7 @@ evolveDealing game@Game {state = DealingState seats deck} = \case
          in EvolutionResult game {state = OfferingInsuranceState deck' players dealer}
     | otherwise ->
         let players = Map.fromList [(pid, initPlayer hand (seats Map.! pid)) | (pid, hand) <- playerHands]
-         in EvolutionResult game {state = OpeningTurnState deck' players dealer Set.empty}
+         in EvolutionResult game {state = OpeningTurnState deck' players dealer Map.empty Set.empty}
     where
       deck' =
         let cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealerHand

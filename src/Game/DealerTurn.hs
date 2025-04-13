@@ -10,7 +10,7 @@ import GameTopology (Decision, Game (Game, state), GameState (..), GameTopology,
 
 decideDealerPlay :: Game vertex -> Decision
 decideDealerPlay = \case
-  Game {state = DealerTurnState deck _ dealer} ->
+  Game {state = DealerTurnState deck _ dealer _} ->
     let dealer' = dealerTurn dealer deck
      in Right (DealerPlayed dealer')
   Game {state = PlayerTurnState {}} -> Left PlayersStillPlaying
@@ -25,6 +25,6 @@ decideDealerPlay = \case
           Just (card, newDeck) -> dealerTurn (Dealer (addCard card hand)) newDeck
 
 evolveDealerTurn :: Game DealerTurn -> Event -> EvolutionResult GameTopology Game DealerTurn output
-evolveDealerTurn game@Game {state = DealerTurnState _ players _} = \case
-  DealerPlayed dealer -> EvolutionResult game {state = ResolvingState players dealer}
+evolveDealerTurn game@Game {state = DealerTurnState _ players _ insuranceResults} = \case
+  DealerPlayed dealer -> EvolutionResult game {state = ResolvingState players dealer insuranceResults}
   _ -> EvolutionResult game

@@ -24,7 +24,7 @@ import GameTopology
 
 decideHit :: PlayerId -> Game vertex -> Decision
 decideHit pid = \case
-  Game {state = PlayerTurnState deck players _}
+  Game {state = PlayerTurnState deck players _ _}
     | not (Map.member pid players) -> Left PlayerNotFound
     | otherwise -> case drawCard deck of
         Just (card, _) -> Right (HitCard pid card)
@@ -33,14 +33,14 @@ decideHit pid = \case
 
 decideStand :: PlayerId -> Game vertex -> Decision
 decideStand pid = \case
-  Game {state = PlayerTurnState _ players _}
+  Game {state = PlayerTurnState _ players _ _}
     | not (Map.member pid players) -> Left PlayerNotFound
     | otherwise -> Right (PlayerStood pid)
   _ -> Left BadCommand
 
 decideDoubleDown :: PlayerId -> Game vertex -> Decision
 decideDoubleDown pid = \case
-  Game {state = OpeningTurnState deck players _ _}
+  Game {state = OpeningTurnState deck players _ _ _}
     | not (Map.member pid players) -> Left PlayerNotFound
     | let Player {hands, playerSeat = PlayerSeat {stack = PlayerStack {chips}}} = players Map.! pid,
       let Bet bet' = bet (Z.current hands),
@@ -53,7 +53,7 @@ decideDoubleDown pid = \case
 
 decideSurrender :: PlayerId -> Game vertex -> Decision
 decideSurrender pid = \case
-  Game {state = OpeningTurnState _ players _ readyPlayers}
+  Game {state = OpeningTurnState _ players _ _ readyPlayers}
     | not (Map.member pid players) -> Left PlayerNotFound
     | Set.member pid readyPlayers -> Left BadCommand
     | otherwise -> Right (PlayerSurrendered pid)
@@ -61,7 +61,7 @@ decideSurrender pid = \case
 
 decideSplit :: PlayerId -> Game vertex -> Decision
 decideSplit pid = \case
-  Game {state = OpeningTurnState deck players _ readyPlayers}
+  Game {state = OpeningTurnState deck players _ _ readyPlayers}
     | not (Map.member pid players) -> Left PlayerNotFound
     | Set.member pid readyPlayers -> Left CantSplitMoreThanOnce
     | otherwise -> case players Map.! pid of
@@ -74,12 +74,12 @@ decideSplit pid = \case
   _ -> Left BadCommand
 
 evolveOpeningTurn :: Game OpeningTurn -> Event -> EvolutionResult GameTopology Game OpeningTurn output
-evolveOpeningTurn game@Game {state = OpeningTurnState deck players dealer readyPlayers} event = case event of
+evolveOpeningTurn game@Game {state = OpeningTurnState deck players dealer insuranceResults readyPlayers} event = case event of
   PlayerSplitHand pid c1 c2 d1 d2 ->
     let deck' = deck {drawn = drawn deck + 2}
         players' = Map.adjust (splitPlayerHand c1 c2 d1 d2) pid players
         readyPlayers' = Set.insert pid readyPlayers
-     in EvolutionResult game {state = OpeningTurnState deck' players' dealer readyPlayers'}
+     in EvolutionResult game {state = OpeningTurnState deck' players' dealer insuranceResults readyPlayers'}
   HitCard pid _ -> advanceState pid
   PlayerStood pid -> advanceState pid
   PlayerDoubledDown pid _ -> advanceState pid
@@ -95,19 +95,19 @@ evolveOpeningTurn game@Game {state = OpeningTurnState deck players dealer readyP
 
     advanceState :: PlayerId -> EvolutionResult GameTopology Game OpeningTurn output
     advanceState pid =
-      let intermediate = evolvePlayerTurn game {state = PlayerTurnState deck players dealer} event
+      let intermediate = evolvePlayerTurn game {state = PlayerTurnState deck players dealer insuranceResults} event
        in case intermediate of
             EvolutionResult next@Game {state = DealerTurnState {}} -> EvolutionResult next
-            EvolutionResult next@Game {state = PlayerTurnState deck' players' dealer'}
+            EvolutionResult next@Game {state = PlayerTurnState deck' players' dealer' _}
               | Set.size readyPlayers == Map.size players' -> EvolutionResult next
               | otherwise ->
                   let readyPlayers' = Set.insert pid readyPlayers
-                   in EvolutionResult next {state = OpeningTurnState deck' players' dealer' readyPlayers'}
+                   in EvolutionResult next {state = OpeningTurnState deck' players' dealer' insuranceResults readyPlayers'}
             EvolutionResult next@Game {state = ResolvingState {}} -> EvolutionResult next
             _ -> EvolutionResult game
 
 evolvePlayerTurn :: Game PlayerTurn -> Event -> EvolutionResult GameTopology Game PlayerTurn output
-evolvePlayerTurn game@Game {state = PlayerTurnState deck players dealer} = \case
+evolvePlayerTurn game@Game {state = PlayerTurnState deck players dealer insuranceResults} = \case
   HitCard pid card ->
     let adjust p@Player {hands} =
           let handState = (Z.current hands) {hand = addCard card (hand handState)}
@@ -136,6 +136,6 @@ evolvePlayerTurn game@Game {state = PlayerTurnState deck players dealer} = \case
        in if all hasCompletedTurn players'
             then
               if any (any hasStood . hands) players'
-                then EvolutionResult game {state = DealerTurnState deck' players' dealer}
-                else EvolutionResult game {state = ResolvingState players' dealer}
-            else EvolutionResult game {state = PlayerTurnState deck' players' dealer}
+                then EvolutionResult game {state = DealerTurnState deck' players' dealer insuranceResults}
+                else EvolutionResult game {state = ResolvingState players' dealer insuranceResults}
+            else EvolutionResult game {state = PlayerTurnState deck' players' dealer insuranceResults}

@@ -72,8 +72,8 @@ evolveResolvingInsurance game@Game {state = ResolvingInsuranceState deck players
     | isBlackjack dealerHand ->
         let players' = Map.mapWithKey settleInsurance results
          in if isBlackjack dealerHand
-              then EvolutionResult game {state = ResolvingState players' dealer}
-              else EvolutionResult game {state = OpeningTurnState deck players' dealer Set.empty}
+              then EvolutionResult game {state = ResolvingState players' dealer results}
+              else EvolutionResult game {state = OpeningTurnState deck players' dealer results Set.empty}
   _ -> EvolutionResult game
   where
     settleInsurance :: PlayerId -> InsuranceResult -> Player
