@@ -67,7 +67,7 @@ visibleCard :: Dealer -> Card
 visibleCard (Dealer (Hand hand)) = head hand -- assuming dealer shows first card
 
 data InsuranceChoice
-  = TookInsurance
+  = TookInsurance Chips
   | DeclinedInsurance
   deriving (Eq, Show)
 
@@ -85,8 +85,9 @@ data Command
   | DoubleDown PlayerId
   | Split PlayerId
   | Surrender PlayerId
-  | TakeInsurance PlayerId
+  | TakeInsurance PlayerId Chips
   | RejectInsurance PlayerId
+  | ResolveInsurance
   | DealerPlay
   | ResolveRound
   | RestartGame
@@ -99,8 +100,9 @@ data Event
   | GameStarted
   | BetPlaced PlayerId Chips
   | CardsDealt [(PlayerId, Hand)] Dealer
-  | PlayerTookInsurance PlayerId
+  | PlayerTookInsurance PlayerId Chips
   | PlayerDeclinedInsurance PlayerId
+  | InsuranceResolved (Map.Map PlayerId InsuranceResult)
   | HitCard PlayerId Card
   | PlayerStood PlayerId
   | PlayerDoubledDown PlayerId Card
@@ -121,7 +123,8 @@ data DealerOutcome
 data ResolvedResult = ResolvedResult
   { handResults :: NonEmpty Outcome,
     nextRoundBet :: Bet,
-    nextRoundChips :: Chips
+    nextRoundChips :: Chips,
+    insuranceResult :: Maybe InsuranceResult
   }
   deriving (Eq, Show)
 
@@ -133,7 +136,6 @@ data Outcome
 
 data WinReason
   = Blackjack
-  | InsurancePayout
   | OutscoredDealer
   deriving (Eq, Show)
 
@@ -141,6 +143,12 @@ data LossReason
   = PlayerBust
   | Surrendered
   | OutscoredByDealer
+  deriving (Eq, Show)
+
+data InsuranceResult
+  = WonInsurancePayout Chips
+  | LostInsuranceBet Chips
+  | NoInsurance
   deriving (Eq, Show)
 
 data GameError
