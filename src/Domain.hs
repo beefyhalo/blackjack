@@ -14,48 +14,48 @@ type Chips = Int
 newtype PlayerId = PlayerId Int
   deriving (Eq, Ord, Show, Read)
 
-data PlayerSeat = PlayerSeat
-  { seatId :: PlayerId,
+data Player = Player
+  { id :: PlayerId,
     stack :: PlayerStack,
     name :: Text
   }
   deriving (Eq, Show)
 
-newPlayerSeat :: PlayerId -> Text -> PlayerSeat
-newPlayerSeat pid = PlayerSeat pid stack
+newPlayer :: PlayerId -> Text -> Player
+newPlayer pid = Player pid stack
   where
     stack = PlayerStack (Bet 0) 100
 
 data PlayerStack = PlayerStack
-  { stackBet :: Bet,
+  { currentBet :: Bet,
     chips :: Chips
   }
   deriving (Eq, Show)
 
-data Player = Player
-  { playerSeat :: PlayerSeat,
+data PlayerSession = PlayerSession
+  { player :: Player,
     hands :: Z.Zipper HandState,
     insurance :: Maybe InsuranceChoice,
     hasSurrendered :: Bool
   }
   deriving (Eq, Show)
 
-initPlayer :: Hand -> PlayerSeat -> Player
-initPlayer hand playerSeat =
+initPlayerSession :: Hand -> Player -> PlayerSession
+initPlayerSession hand player =
   let handState = initHandState hand
-   in Player playerSeat (Z.fromNonEmpty $ pure handState) Nothing False
+   in PlayerSession player (Z.fromNonEmpty $ pure handState) Nothing False
 
-hasCompletedTurn :: Player -> Bool
-hasCompletedTurn Player {hasSurrendered, hands} =
+hasCompletedTurn :: PlayerSession -> Bool
+hasCompletedTurn PlayerSession {hasSurrendered, hands} =
   hasSurrendered || all (\h -> hasStood h || hasDoubledDown h) hands
 
-withPlayer ::
+withSession ::
   PlayerId ->
-  Map.Map PlayerId Player ->
-  (Player -> Either GameError a) ->
+  Map.Map PlayerId PlayerSession ->
+  (PlayerSession -> Either GameError a) ->
   Either GameError a
-withPlayer pid players f =
-  maybe (Left PlayerNotFound) f (Map.lookup pid players)
+withSession pid sessions f =
+  maybe (Left PlayerSessionNotFound) f (Map.lookup pid sessions)
 
 data HandState = HandState
   { hand :: Hand,
@@ -169,9 +169,9 @@ data GameError
   = PlayerAlreadyJoined
   | GameAlreadyStarted
   | PlayerNotFound
-  | PlayerSeatNotFound
+  | PlayerSessionNotFound
   | TooFewPlayers
-  | CantSplitMoreThanOnce
+  | PlayerAlreadyActed
   | BadCommand
   | MalsizedBet
   | PlayerAlreadyBet

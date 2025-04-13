@@ -28,7 +28,7 @@ library
       Application
       Domain
       Game
-      Game.Bidding
+      Game.Betting
       Game.DealerTurn
       Game.Dealing
       Game.Insurance

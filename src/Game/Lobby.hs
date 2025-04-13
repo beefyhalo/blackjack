@@ -18,32 +18,32 @@ import GameTopology
 
 decideJoinGame :: Text -> Game vertex -> Decision
 decideJoinGame name = \case
-  Game {state = LobbyState seats} ->
-    let pid = PlayerId (length seats)
+  Game {state = LobbyState players} ->
+    let pid = PlayerId (length players)
      in Right (PlayerJoined pid name)
   _ -> Left GameAlreadyStarted
 
 decideLeaveGame :: PlayerId -> Game vertex -> Decision
 decideLeaveGame pid = \case
-  Game {state = LobbyState seats}
-    | Map.member pid seats -> Right (PlayerLeft pid)
-    | otherwise -> Left PlayerSeatNotFound
+  Game {state = LobbyState players}
+    | Map.member pid players -> Right (PlayerLeft pid)
+    | otherwise -> Left PlayerNotFound
   _ -> Left GameAlreadyStarted
 
 decideStartGame :: Game vertex -> Decision
 decideStartGame = \case
-  Game {state = LobbyState seats}
-    | null seats -> Left TooFewPlayers
+  Game {state = LobbyState players}
+    | null players -> Left TooFewPlayers
     | otherwise -> Right GameStarted
   _ -> Left GameAlreadyStarted
 
 evolveLobby :: Game InLobby -> Event -> EvolutionResult GameTopology Game InLobby output
-evolveLobby game@Game {state = LobbyState seats} = \case
+evolveLobby game@Game {state = LobbyState players} = \case
   PlayerJoined pid name ->
-    let seats' = Map.insert pid (newPlayerSeat pid name) seats
-     in EvolutionResult game {state = LobbyState seats'}
+    let players' = Map.insert pid (newPlayer pid name) players
+     in EvolutionResult game {state = LobbyState players'}
   PlayerLeft pid ->
-    let seats' = Map.delete pid seats
-     in EvolutionResult game {state = LobbyState seats'}
-  GameStarted -> EvolutionResult game {state = BiddingState seats}
+    let players' = Map.delete pid players
+     in EvolutionResult game {state = LobbyState players'}
+  GameStarted -> EvolutionResult game {state = BettingState players}
   _ -> EvolutionResult game

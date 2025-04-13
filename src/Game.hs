@@ -6,7 +6,7 @@ module Game (baseMachine, decider) where
 import Crem.BaseMachine (BaseMachine, InitialState (..))
 import Crem.Decider (Decider (..), EvolutionResult (EvolutionResult), deciderMachine)
 import Domain (Command (..), Event (GameExited), GameError)
-import Game.Bidding
+import Game.Betting
 import Game.DealerTurn
 import Game.Dealing
 import Game.Insurance
@@ -47,7 +47,7 @@ decider initialState =
         Right event ->
           let step = case state game of
                 LobbyState {} -> evolveLobby
-                BiddingState {} -> evolveBidding
+                BettingState {} -> evolveBetting
                 DealingState {} -> evolveDealing
                 OfferingInsuranceState {} -> evolveOfferingInsurance
                 ResolvingInsuranceState {} -> evolveResolvingInsurance

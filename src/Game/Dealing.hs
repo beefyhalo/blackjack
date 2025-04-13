@@ -18,18 +18,18 @@ decideDealInitialCards = \case
       (playerHands, deck') <- dealNTo 2 (Map.keys pids) deck
       (dealerHand, _) <- dealN 2 deck'
       Just (CardsDealt playerHands (Dealer dealerHand))
-  Game {state = BiddingState {}} -> Left PlayersStillBetting
+  Game {state = BettingState {}} -> Left PlayersStillBetting
   _ -> Left BadCommand
 
 evolveDealing :: Game DealingCards -> Event -> EvolutionResult GameTopology Game DealingCards output
-evolveDealing game@Game {state = DealingState seats deck} = \case
+evolveDealing game@Game {state = DealingState players deck} = \case
   CardsDealt playerHands dealer@(Dealer dealerHand)
     | isAce (visibleCard dealer) ->
-        let players = fmap (initPlayer emptyHand) seats
-         in EvolutionResult game {state = OfferingInsuranceState (GameContext deck' players dealer)}
+        let sessions = fmap (initPlayerSession emptyHand) players
+         in EvolutionResult game {state = OfferingInsuranceState (GameContext deck' sessions dealer)}
     | otherwise ->
-        let players = Map.fromList [(pid, initPlayer hand (seats Map.! pid)) | (pid, hand) <- playerHands]
-            openingContext = OpeningContext (InsuranceContext (GameContext deck' players dealer) Map.empty) Set.empty
+        let sessions = Map.fromList [(pid, initPlayerSession hand (players Map.! pid)) | (pid, hand) <- playerHands]
+            openingContext = OpeningContext (InsuranceContext (GameContext deck' sessions dealer) Map.empty) Set.empty
          in EvolutionResult game {state = OpeningTurnState openingContext}
     where
       deck' =

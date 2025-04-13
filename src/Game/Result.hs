@@ -14,7 +14,7 @@ decideRestartGame = \case
   _ -> Left GameAlreadyStarted
 
 evolveResult :: Game Result -> Event -> EvolutionResult GameTopology Game Result output
-evolveResult game@Game {state = ResultState seats} = \case
-  GameRestarted -> EvolutionResult (withUpdatedRng game {state = LobbyState seats})
+evolveResult game@Game {state = ResultState players} = \case
+  GameRestarted -> EvolutionResult (withUpdatedRng game {state = LobbyState players})
   GameExited -> EvolutionResult game {state = ExitedState}
   _ -> EvolutionResult game

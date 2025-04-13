@@ -25,6 +25,6 @@ decideDealerPlay = \case
           Just (card, newDeck) -> dealerTurn (Dealer (addCard card hand)) newDeck
 
 evolveDealerTurn :: Game DealerTurn -> Event -> EvolutionResult GameTopology Game DealerTurn output
-evolveDealerTurn game@Game {state = DealerTurnState InsuranceContext {context = GameContext {players}, insurancePayouts}} = \case
-  DealerPlayed dealer -> EvolutionResult game {state = ResolvingState (ResolutionContext players dealer insurancePayouts)}
+evolveDealerTurn game@Game {state = DealerTurnState InsuranceContext {context = GameContext {sessions}, insurancePayouts}} = \case
+  DealerPlayed dealer -> EvolutionResult game {state = ResolvingState (ResolutionContext sessions dealer insurancePayouts)}
   _ -> EvolutionResult game

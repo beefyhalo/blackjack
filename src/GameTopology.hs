@@ -59,23 +59,23 @@ withUpdatedRng :: Game v -> Game v
 withUpdatedRng game = game {stdGen = let (_, g') = split (stdGen game) in g'}
 
 data GameState (vertex :: GameVertex) where
-  LobbyState :: PlayerSeatMap -> GameState 'InLobby
-  BiddingState :: PlayerSeatMap -> GameState 'AwaitingBets
-  DealingState :: PlayerSeatMap -> Deck -> GameState 'DealingCards
+  LobbyState :: PlayerMap -> GameState 'InLobby
+  BettingState :: PlayerMap -> GameState 'AwaitingBets
+  DealingState :: PlayerMap -> Deck -> GameState 'DealingCards
   OfferingInsuranceState :: GameContext -> GameState 'OfferingInsurance
   ResolvingInsuranceState :: GameContext -> GameState 'ResolvingInsurance
   OpeningTurnState :: OpeningContext -> GameState 'OpeningTurn
   PlayerTurnState :: InsuranceContext -> GameState 'PlayerTurn
   DealerTurnState :: InsuranceContext -> GameState 'DealerTurn
   ResolvingState :: ResolutionContext -> GameState 'ResolvingHands
-  ResultState :: PlayerSeatMap -> GameState 'Result
+  ResultState :: PlayerMap -> GameState 'Result
   ExitedState :: GameState 'GameOver
 
-type PlayerSeatMap = Map.Map PlayerId PlayerSeat
+type PlayerMap = Map.Map PlayerId Player
 
 data GameContext = GameContext
   { deck :: Deck,
-    players :: Map.Map PlayerId Player,
+    sessions :: Map.Map PlayerId PlayerSession,
     dealer :: Dealer
   }
 
@@ -90,7 +90,7 @@ data OpeningContext = OpeningContext
   }
 
 data ResolutionContext = ResolutionContext
-  { resolvedPlayers :: Map.Map PlayerId Player,
+  { resolvedRounds :: Map.Map PlayerId PlayerSession,
     resolvedDealer :: Dealer,
     resolvedInsurancePayouts :: Map.Map PlayerId InsurancePayout
   }
