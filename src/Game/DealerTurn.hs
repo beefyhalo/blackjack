@@ -5,12 +5,12 @@
 module Game.DealerTurn (decideDealerPlay, evolveDealerTurn) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
-import Domain (Dealer (..), Deck, Event (DealerPlayed), GameError (BadCommand, PlayersStillPlaying), addCard, drawCard, score)
-import GameTopology (Decision, Game (Game, state), GameState (..), GameTopology, GameVertex (DealerTurn))
+import Domain
+import GameTopology
 
 decideDealerPlay :: Game vertex -> Decision
 decideDealerPlay = \case
-  Game {state = DealerTurnState deck _ dealer _} ->
+  Game {state = DealerTurnState InsuranceContext {context = GameContext {deck, dealer}}} ->
     let dealer' = dealerTurn dealer deck
      in Right (DealerPlayed dealer')
   Game {state = PlayerTurnState {}} -> Left PlayersStillPlaying
@@ -25,6 +25,6 @@ decideDealerPlay = \case
           Just (card, newDeck) -> dealerTurn (Dealer (addCard card hand)) newDeck
 
 evolveDealerTurn :: Game DealerTurn -> Event -> EvolutionResult GameTopology Game DealerTurn output
-evolveDealerTurn game@Game {state = DealerTurnState _ players _ insuranceResults} = \case
-  DealerPlayed dealer -> EvolutionResult game {state = ResolvingState players dealer insuranceResults}
+evolveDealerTurn game@Game {state = DealerTurnState InsuranceContext {context = GameContext {players}, insurancePayouts}} = \case
+  DealerPlayed dealer -> EvolutionResult game {state = ResolvingState (ResolutionContext players dealer insurancePayouts)}
   _ -> EvolutionResult game

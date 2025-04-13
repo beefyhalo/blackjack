@@ -5,14 +5,13 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module GameTopology where
+module GameTopology (module GameTopology) where
 
 import Crem.Render.RenderableVertices
 import Crem.Topology
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Domain
-import Domain (InsuranceResult)
 import System.Random (StdGen, split)
 import "singletons-base" Data.Singletons.Base.TH
 
@@ -60,16 +59,40 @@ withUpdatedRng :: Game v -> Game v
 withUpdatedRng game = game {stdGen = let (_, g') = split (stdGen game) in g'}
 
 data GameState (vertex :: GameVertex) where
-  LobbyState :: Map.Map PlayerId PlayerSeat -> GameState 'InLobby
-  BiddingState :: Map.Map PlayerId PlayerSeat -> GameState 'AwaitingBets
-  DealingState :: Map.Map PlayerId PlayerSeat -> Deck -> GameState 'DealingCards
-  OfferingInsuranceState :: Deck -> Map.Map PlayerId Player -> Dealer -> GameState 'OfferingInsurance
-  ResolvingInsuranceState :: Deck -> Map.Map PlayerId Player -> Dealer -> GameState 'ResolvingInsurance
-  OpeningTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> Map.Map PlayerId InsuranceResult -> Set.Set PlayerId -> GameState 'OpeningTurn
-  PlayerTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> Map.Map PlayerId InsuranceResult -> GameState 'PlayerTurn
-  DealerTurnState :: Deck -> Map.Map PlayerId Player -> Dealer -> Map.Map PlayerId InsuranceResult -> GameState 'DealerTurn
-  ResolvingState :: Map.Map PlayerId Player -> Dealer -> Map.Map PlayerId InsuranceResult -> GameState 'ResolvingHands
-  ResultState :: Map.Map PlayerId PlayerSeat -> GameState 'Result
+  LobbyState :: PlayerSeatMap -> GameState 'InLobby
+  BiddingState :: PlayerSeatMap -> GameState 'AwaitingBets
+  DealingState :: PlayerSeatMap -> Deck -> GameState 'DealingCards
+  OfferingInsuranceState :: GameContext -> GameState 'OfferingInsurance
+  ResolvingInsuranceState :: GameContext -> GameState 'ResolvingInsurance
+  OpeningTurnState :: OpeningContext -> GameState 'OpeningTurn
+  PlayerTurnState :: InsuranceContext -> GameState 'PlayerTurn
+  DealerTurnState :: InsuranceContext -> GameState 'DealerTurn
+  ResolvingState :: ResolutionContext -> GameState 'ResolvingHands
+  ResultState :: PlayerSeatMap -> GameState 'Result
   ExitedState :: GameState 'GameOver
+
+type PlayerSeatMap = Map.Map PlayerId PlayerSeat
+
+data GameContext = GameContext
+  { deck :: Deck,
+    players :: Map.Map PlayerId Player,
+    dealer :: Dealer
+  }
+
+data InsuranceContext = InsuranceContext
+  { context :: GameContext,
+    insurancePayouts :: Map.Map PlayerId InsurancePayout
+  }
+
+data OpeningContext = OpeningContext
+  { insurance :: InsuranceContext,
+    readyPlayers :: Set.Set PlayerId
+  }
+
+data ResolutionContext = ResolutionContext
+  { resolvedPlayers :: Map.Map PlayerId Player,
+    resolvedDealer :: Dealer,
+    resolvedInsurancePayouts :: Map.Map PlayerId InsurancePayout
+  }
 
 type Decision = Either GameError Event

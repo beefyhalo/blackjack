@@ -19,12 +19,12 @@ import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Set qualified as Set
-import Domain
+import Domain hiding (insurance)
 import GameTopology
 
 decideHit :: PlayerId -> Game vertex -> Decision
 decideHit pid = \case
-  Game {state = PlayerTurnState deck players _ _}
+  Game {state = PlayerTurnState InsuranceContext {context = GameContext {deck, players}}}
     | not (Map.member pid players) -> Left PlayerNotFound
     | otherwise -> case drawCard deck of
         Just (card, _) -> Right (HitCard pid card)
@@ -33,14 +33,14 @@ decideHit pid = \case
 
 decideStand :: PlayerId -> Game vertex -> Decision
 decideStand pid = \case
-  Game {state = PlayerTurnState _ players _ _}
+  Game {state = PlayerTurnState InsuranceContext {context = GameContext {players}}}
     | not (Map.member pid players) -> Left PlayerNotFound
     | otherwise -> Right (PlayerStood pid)
   _ -> Left BadCommand
 
 decideDoubleDown :: PlayerId -> Game vertex -> Decision
 decideDoubleDown pid = \case
-  Game {state = OpeningTurnState deck players _ _ _}
+  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {deck, players}}}}
     | not (Map.member pid players) -> Left PlayerNotFound
     | let Player {hands, playerSeat = PlayerSeat {stack = PlayerStack {chips}}} = players Map.! pid,
       let Bet bet' = bet (Z.current hands),
@@ -53,7 +53,7 @@ decideDoubleDown pid = \case
 
 decideSurrender :: PlayerId -> Game vertex -> Decision
 decideSurrender pid = \case
-  Game {state = OpeningTurnState _ players _ _ readyPlayers}
+  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {players}}, readyPlayers}}
     | not (Map.member pid players) -> Left PlayerNotFound
     | Set.member pid readyPlayers -> Left BadCommand
     | otherwise -> Right (PlayerSurrendered pid)
@@ -61,7 +61,7 @@ decideSurrender pid = \case
 
 decideSplit :: PlayerId -> Game vertex -> Decision
 decideSplit pid = \case
-  Game {state = OpeningTurnState deck players _ _ readyPlayers}
+  Game {state = OpeningTurnState OpeningContext {insurance = InsuranceContext {context = GameContext {deck, players}}, readyPlayers}}
     | not (Map.member pid players) -> Left PlayerNotFound
     | Set.member pid readyPlayers -> Left CantSplitMoreThanOnce
     | otherwise -> case players Map.! pid of
@@ -74,12 +74,13 @@ decideSplit pid = \case
   _ -> Left BadCommand
 
 evolveOpeningTurn :: Game OpeningTurn -> Event -> EvolutionResult GameTopology Game OpeningTurn output
-evolveOpeningTurn game@Game {state = OpeningTurnState deck players dealer insuranceResults readyPlayers} event = case event of
+evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insurance = insurance@InsuranceContext {context = GameContext deck players dealer}, readyPlayers}} event = case event of
   PlayerSplitHand pid c1 c2 d1 d2 ->
     let deck' = deck {drawn = drawn deck + 2}
         players' = Map.adjust (splitPlayerHand c1 c2 d1 d2) pid players
         readyPlayers' = Set.insert pid readyPlayers
-     in EvolutionResult game {state = OpeningTurnState deck' players' dealer insuranceResults readyPlayers'}
+        insurance' = insurance {context = GameContext deck' players' dealer}
+     in EvolutionResult game {state = OpeningTurnState (OpeningContext insurance' readyPlayers')}
   HitCard pid _ -> advanceState pid
   PlayerStood pid -> advanceState pid
   PlayerDoubledDown pid _ -> advanceState pid
@@ -95,19 +96,20 @@ evolveOpeningTurn game@Game {state = OpeningTurnState deck players dealer insura
 
     advanceState :: PlayerId -> EvolutionResult GameTopology Game OpeningTurn output
     advanceState pid =
-      let intermediate = evolvePlayerTurn game {state = PlayerTurnState deck players dealer insuranceResults} event
+      let intermediate = evolvePlayerTurn game {state = PlayerTurnState insurance} event
        in case intermediate of
             EvolutionResult next@Game {state = DealerTurnState {}} -> EvolutionResult next
-            EvolutionResult next@Game {state = PlayerTurnState deck' players' dealer' _}
+            EvolutionResult next@Game {state = PlayerTurnState InsuranceContext {context = GameContext deck' players' dealer'}}
               | Set.size readyPlayers == Map.size players' -> EvolutionResult next
               | otherwise ->
                   let readyPlayers' = Set.insert pid readyPlayers
-                   in EvolutionResult next {state = OpeningTurnState deck' players' dealer' insuranceResults readyPlayers'}
+                      insurance' = insurance {context = GameContext deck' players' dealer'}
+                   in EvolutionResult next {state = OpeningTurnState (OpeningContext insurance' readyPlayers')}
             EvolutionResult next@Game {state = ResolvingState {}} -> EvolutionResult next
             _ -> EvolutionResult game
 
 evolvePlayerTurn :: Game PlayerTurn -> Event -> EvolutionResult GameTopology Game PlayerTurn output
-evolvePlayerTurn game@Game {state = PlayerTurnState deck players dealer insuranceResults} = \case
+evolvePlayerTurn game@Game {state = PlayerTurnState insurance@InsuranceContext {context = GameContext deck players dealer, insurancePayouts}} = \case
   HitCard pid card ->
     let adjust p@Player {hands} =
           let handState = (Z.current hands) {hand = addCard card (hand handState)}
@@ -136,6 +138,6 @@ evolvePlayerTurn game@Game {state = PlayerTurnState deck players dealer insuranc
        in if all hasCompletedTurn players'
             then
               if any (any hasStood . hands) players'
-                then EvolutionResult game {state = DealerTurnState deck' players' dealer insuranceResults}
-                else EvolutionResult game {state = ResolvingState players' dealer insuranceResults}
-            else EvolutionResult game {state = PlayerTurnState deck' players' dealer insuranceResults}
+                then EvolutionResult game {state = DealerTurnState insurance {context = GameContext deck' players' dealer}}
+                else EvolutionResult game {state = ResolvingState (ResolutionContext players' dealer insurancePayouts)}
+            else EvolutionResult game {state = PlayerTurnState insurance {context = GameContext deck' players' dealer}}

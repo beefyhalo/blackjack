@@ -72,7 +72,7 @@ data InsuranceChoice
   deriving (Eq, Show)
 
 newtype Bet = Bet {current :: Chips}
-  deriving (Eq, Show, Num)
+  deriving (Eq, Ord, Show, Num)
 
 data Command
   = JoinGame Text
@@ -102,7 +102,7 @@ data Event
   | CardsDealt [(PlayerId, Hand)] Dealer
   | PlayerTookInsurance PlayerId Chips
   | PlayerDeclinedInsurance PlayerId
-  | InsuranceResolved (Map.Map PlayerId InsuranceResult)
+  | InsuranceResolved (Map.Map PlayerId InsurancePayout)
   | HitCard PlayerId Card
   | PlayerStood PlayerId
   | PlayerDoubledDown PlayerId Card
@@ -125,7 +125,7 @@ data PlayerSummary = PlayerSummary
     netChipChange :: Int,
     finalChips :: Chips,
     nextRoundBet :: Bet,
-    insuranceResult :: Maybe InsuranceResult
+    insurancePayout :: Maybe InsurancePayout
   }
   deriving (Eq, Show)
 
@@ -146,7 +146,7 @@ data LossReason
   | OutscoredByDealer
   deriving (Eq, Show)
 
-data InsuranceResult
+data InsurancePayout
   = WonInsurancePayout Chips
   | LostInsuranceBet Chips
   | NoInsurance

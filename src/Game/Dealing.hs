@@ -26,10 +26,11 @@ evolveDealing game@Game {state = DealingState seats deck} = \case
   CardsDealt playerHands dealer@(Dealer dealerHand)
     | isAce (visibleCard dealer) ->
         let players = fmap (initPlayer emptyHand) seats
-         in EvolutionResult game {state = OfferingInsuranceState deck' players dealer}
+         in EvolutionResult game {state = OfferingInsuranceState (GameContext deck' players dealer)}
     | otherwise ->
         let players = Map.fromList [(pid, initPlayer hand (seats Map.! pid)) | (pid, hand) <- playerHands]
-         in EvolutionResult game {state = OpeningTurnState deck' players dealer Map.empty Set.empty}
+            openingContext = OpeningContext (InsuranceContext (GameContext deck' players dealer) Map.empty) Set.empty
+         in EvolutionResult game {state = OpeningTurnState openingContext}
     where
       deck' =
         let cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealerHand

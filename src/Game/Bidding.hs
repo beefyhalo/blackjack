@@ -24,7 +24,7 @@ evolveBidding :: Game AwaitingBets -> Event -> EvolutionResult GameTopology Game
 evolveBidding game@Game {stdGen, state = BiddingState seats} = \case
   BetPlaced pid chips ->
     let seats' = Map.adjust (\m -> m {stack = (stack m) {stackBet = Bet chips}}) pid seats
-        allBetsAreIn = all ((> 0) . current . stackBet . stack) seats'
+        allBetsAreIn = all ((> 0) . stackBet . stack) seats'
         deck = mkDeck stdGen
      in if allBetsAreIn
           then EvolutionResult game {state = DealingState seats' deck}

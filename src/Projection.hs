@@ -6,14 +6,14 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Projection where
+module Projection (module Projection) where
 
 import Crem.BaseMachine (BaseMachine, BaseMachineT (..), InitialState (InitialState), pureResult)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
-import Data.Monoid (Sum (Sum))
+import Data.Monoid (Sum)
 import Data.Override (Override (Override))
-import Domain (Chips, Event (RoundResolved), Outcome (..))
+import Domain (Chips, Event (RoundResolved))
 import GHC.Generics (Generic)
 import "singletons-base" Data.Singletons.Base.TH hiding (Sum)
 

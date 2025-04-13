@@ -13,9 +13,9 @@ import GameTopology
 
 decideResolveRound :: Game vertex -> Decision
 decideResolveRound = \case
-  Game {state = ResolvingState players dealer insuranceResults} ->
-    let dealerOutcome = determineDealerOutcome dealer
-        result = Map.mapWithKey (resolvePlayer dealerOutcome insuranceResults) players
+  Game {state = ResolvingState ResolutionContext {resolvedPlayers, resolvedDealer, resolvedInsurancePayouts}} ->
+    let dealerOutcome = determineDealerOutcome resolvedDealer
+        result = Map.mapWithKey (resolvePlayer dealerOutcome resolvedInsurancePayouts) resolvedPlayers
      in Right (RoundResolved dealerOutcome result)
   _ -> Left BadCommand
   where
@@ -25,13 +25,13 @@ decideResolveRound = \case
       | isBust hand = DealerBust
       | otherwise = DealerFinalScore (score hand)
 
-    resolvePlayer :: DealerOutcome -> Map.Map PlayerId InsuranceResult -> PlayerId -> Player -> PlayerSummary
-    resolvePlayer dealerOutcome insuranceResults pid Player {hands, playerSeat = PlayerSeat {stack = PlayerStack {chips}}, hasSurrendered} =
+    resolvePlayer :: DealerOutcome -> Map.Map PlayerId InsurancePayout -> PlayerId -> Player -> PlayerSummary
+    resolvePlayer dealerOutcome insurancePayouts pid Player {hands, playerSeat = PlayerSeat {stack = PlayerStack {chips}}, hasSurrendered} =
       let (outcomes, totalDelta, totalPush) = unzip3 $ map resolveHand (toList hands)
           net = sum totalDelta
           pushed = sum totalPush
-          insuranceResult = Map.lookup pid insuranceResults
-          insuranceDelta = case insuranceResult of
+          insurancePayout = Map.lookup pid insurancePayouts
+          insuranceDelta = case insurancePayout of
             Just (WonInsurancePayout amt) -> amt
             Just (LostInsuranceBet amt) -> -amt
             _ -> 0
@@ -40,7 +40,7 @@ decideResolveRound = \case
               netChipChange = net + insuranceDelta,
               finalChips = chips + net,
               nextRoundBet = pushed,
-              insuranceResult = insuranceResult
+              insurancePayout = insurancePayout
             }
       where
         resolveHand :: HandState -> (Outcome, Int, Bet)
@@ -79,10 +79,10 @@ decideResolveRound = \case
             payout m = floor @Float (fromIntegral current * m)
 
 evolveResolution :: Game ResolvingHands -> Event -> EvolutionResult GameTopology Game ResolvingHands output
-evolveResolution game@Game {state = ResolvingState players _ _} = \case
+evolveResolution game@Game {state = ResolvingState ResolutionContext {resolvedPlayers}} = \case
   RoundResolved _ outcomes ->
     let settleSeat Player {playerSeat} (PlayerSummary {nextRoundBet, finalChips}) =
           playerSeat {stack = PlayerStack nextRoundBet finalChips}
-        seats = Map.mapWithKey (settleSeat . (players Map.!)) outcomes
+        seats = Map.mapWithKey (settleSeat . (resolvedPlayers Map.!)) outcomes
      in EvolutionResult game {state = ResultState seats}
   _ -> EvolutionResult game
