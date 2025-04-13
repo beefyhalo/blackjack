@@ -2,7 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Game.Resolution where
+module Game.Resolution (decideResolveRound, evolveResolution) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Foldable (toList)

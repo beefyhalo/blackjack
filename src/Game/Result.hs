@@ -2,7 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Game.Result where
+module Game.Result (decideRestartGame, evolveResult) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Domain

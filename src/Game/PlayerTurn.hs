@@ -3,7 +3,16 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Game.PlayerTurn where
+module Game.PlayerTurn
+  ( decideHit,
+    decideStand,
+    decideDoubleDown,
+    decideSurrender,
+    decideSplit,
+    evolveOpeningTurn,
+    evolvePlayerTurn,
+  )
+where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.List.NonEmpty.Zipper qualified as Z

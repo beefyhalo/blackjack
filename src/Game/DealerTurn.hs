@@ -2,7 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Game.DealerTurn where
+module Game.DealerTurn (decideDealerPlay, evolveDealerTurn) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Domain (Dealer (..), Deck, Event (DealerPlayed), GameError (BadCommand, PlayersStillPlaying), addCard, drawCard, score)

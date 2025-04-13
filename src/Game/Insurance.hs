@@ -2,7 +2,14 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Game.Insurance where
+module Game.Insurance
+  ( decideTakeInsurance,
+    decideRejectInsurance,
+    decideResolveInsurance,
+    evolveOfferingInsurance,
+    evolveResolvingInsurance,
+  )
+where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
