@@ -49,6 +49,14 @@ hasCompletedTurn :: Player -> Bool
 hasCompletedTurn Player {hasSurrendered, hands} =
   hasSurrendered || all (\h -> hasStood h || hasDoubledDown h) hands
 
+withPlayer ::
+  PlayerId ->
+  Map.Map PlayerId Player ->
+  (Player -> Either GameError a) ->
+  Either GameError a
+withPlayer pid players f =
+  maybe (Left PlayerNotFound) f (Map.lookup pid players)
+
 data HandState = HandState
   { hand :: Hand,
     bet :: Bet,

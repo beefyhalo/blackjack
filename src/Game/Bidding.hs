@@ -11,22 +11,22 @@ import GameTopology
 
 decidePlaceBet :: PlayerId -> Chips -> Game vertex -> Decision
 decidePlaceBet pid amt = \case
-  Game {state = BiddingState bets}
-    | not (Map.member pid bets) -> Left PlayerNotFound
-    | otherwise -> case bets Map.! pid of
-        PlayerSeat {stack = PlayerStack (Bet bet) chips}
-          | bet > 0 -> Left PlayerAlreadyBet
-          | 0 > bet || bet > chips -> Left MalsizedBet
-          | otherwise -> Right (BetPlaced pid amt)
+  Game {state = BiddingState bets} ->
+    case Map.lookup pid bets of
+      Nothing -> Left PlayerNotFound
+      Just PlayerSeat {stack = PlayerStack bet chips}
+        | bet > 0 -> Left PlayerAlreadyBet
+        | amt <= 0 || amt > chips -> Left MalsizedBet
+        | otherwise -> Right (BetPlaced pid amt)
   _ -> Left BadCommand
 
 evolveBidding :: Game AwaitingBets -> Event -> EvolutionResult GameTopology Game AwaitingBets output
 evolveBidding game@Game {stdGen, state = BiddingState seats} = \case
   BetPlaced pid chips ->
-    let seats' = Map.adjust (\m -> m {stack = (stack m) {stackBet = Bet chips}}) pid seats
-        allBetsAreIn = all ((> 0) . stackBet . stack) seats'
-        deck = mkDeck stdGen
-     in if allBetsAreIn
-          then EvolutionResult game {state = DealingState seats' deck}
+    let updateBet seat = seat {stack = (stack seat) {stackBet = Bet chips}}
+        seats' = Map.adjust updateBet pid seats
+        allBetsIn = all ((> 0) . stackBet . stack) seats'
+     in if allBetsIn
+          then EvolutionResult game {state = DealingState seats' (mkDeck stdGen)}
           else EvolutionResult game {state = BiddingState seats'}
   _ -> EvolutionResult game

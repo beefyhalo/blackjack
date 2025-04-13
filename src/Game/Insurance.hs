@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 
 module Game.Insurance
   ( decideTakeInsurance,
@@ -20,29 +21,31 @@ import GameTopology
 
 decideTakeInsurance :: PlayerId -> Chips -> Game vertex -> Decision
 decideTakeInsurance pid insuranceChips = \case
-  Game {state = OfferingInsuranceState GameContext {players}}
-    | not (Map.member pid players) -> Left PlayerNotFound
-    | isJust (Domain.insurance (players Map.! pid)) -> Left PlayerAlreadyInsured
-    | let Player {playerSeat = PlayerSeat {stack}} = players Map.! pid,
-      0 > insuranceChips || insuranceChips < chips stack ->
-        Left MalsizedBet
-    | otherwise -> Right (PlayerTookInsurance pid insuranceChips)
+  Game {state = OfferingInsuranceState GameContext {players}} ->
+    case Map.lookup pid players of
+      Nothing -> Left PlayerNotFound
+      Just Player {playerSeat = PlayerSeat {stack}, Domain.insurance} ->
+        if
+          | isJust insurance -> Left PlayerAlreadyInsured
+          | insuranceChips <= 0 || insuranceChips > chips stack -> Left MalsizedBet
+          | otherwise -> Right (PlayerTookInsurance pid insuranceChips)
   _ -> Left BadCommand
 
 decideRejectInsurance :: PlayerId -> Game vertex -> Decision
 decideRejectInsurance pid = \case
-  Game {state = OfferingInsuranceState GameContext {players}}
-    | not (Map.member pid players) -> Left PlayerNotFound
-    | isJust (Domain.insurance (players Map.! pid)) -> Left PlayerAlreadyInsured
-    | otherwise -> Right (PlayerDeclinedInsurance pid)
+  Game {state = OfferingInsuranceState GameContext {players}} ->
+    case Map.lookup pid players of
+      Nothing -> Left PlayerNotFound
+      Just Player {Domain.insurance} | isJust insurance -> Left PlayerAlreadyInsured
+      _ -> Right (PlayerDeclinedInsurance pid)
   _ -> Left BadCommand
 
 decideResolveInsurance :: Game vertex -> Decision
 decideResolveInsurance = \case
   Game {state = ResolvingInsuranceState GameContext {players, dealer = Dealer dealerHand}} ->
     let isDealerBlackjack = isBlackjack dealerHand
-        results = fmap (resolveInsuranceForPlayer isDealerBlackjack) players
-     in Right (InsuranceResolved results)
+        insurancePayouts = fmap (resolveInsuranceForPlayer isDealerBlackjack) players
+     in Right (InsuranceResolved insurancePayouts)
   _ -> Left BadCommand
   where
     resolveInsuranceForPlayer :: Bool -> Player -> InsurancePayout
