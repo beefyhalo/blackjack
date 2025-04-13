@@ -44,9 +44,11 @@ library
     , generic-override
     , list-shuffle
     , mtl
+    , nonempty-zipper
     , profunctors
     , random
     , singletons-base
+    , text
     , vector
   default-language: GHC2021
 

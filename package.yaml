@@ -48,6 +48,8 @@ library:
   - vector
   - generic-override
   - profunctors
+  - nonempty-zipper
+  - text
 
 executables:
   blackjack-exe:

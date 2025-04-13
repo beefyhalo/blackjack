@@ -2,27 +2,63 @@
 
 module Domain (module Domain) where
 
+import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Map qualified as Map
-import Data.String (IsString)
+import Data.Text (Text)
 import Data.Vector qualified as V
 import System.Random (StdGen, randomR)
 
 type Chips = Int
 
-newtype PlayerId = PlayerId String
-  deriving (Eq, Ord, Show, Read, IsString)
+newtype PlayerId = PlayerId Int
+  deriving (Eq, Ord, Show, Read)
+
+data PlayerSeat = PlayerSeat
+  { seatId :: PlayerId,
+    stack :: PlayerStack,
+    name :: Text
+  }
+  deriving (Eq, Show)
+
+newPlayerSeat :: PlayerId -> Text -> PlayerSeat
+newPlayerSeat pid = PlayerSeat pid stack
+  where
+    stack = PlayerStack (Bet 0) 100
+
+data PlayerStack = PlayerStack
+  { stackBet :: Bet,
+    chips :: Chips
+  }
+  deriving (Eq, Show)
 
 data Player = Player
-  { hand :: Hand,
-    bet :: Bet,
-    hasCompletedTurn :: Bool,
+  { playerSeat :: PlayerSeat,
+    hands :: Z.Zipper HandState,
     insurance :: Maybe InsuranceChoice,
     hasSurrendered :: Bool
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
-newPlayer :: Bet -> Player
-newPlayer bet = Player emptyHand bet False Nothing False
+initPlayer :: Hand -> PlayerSeat -> Player
+initPlayer hand playerSeat =
+  let handState = initHandState hand
+   in Player playerSeat (Z.fromNonEmpty $ pure handState) Nothing False
+
+hasCompletedTurn :: Player -> Bool
+hasCompletedTurn Player {hasSurrendered, hands} =
+  hasSurrendered || all (\h -> hasStood h || hasDoubledDown h) hands
+
+data HandState = HandState
+  { hand :: Hand,
+    bet :: Bet,
+    hasStood :: Bool,
+    hasDoubledDown :: Bool
+  }
+  deriving (Eq, Show)
+
+initHandState :: Hand -> HandState
+initHandState hand = HandState hand (Bet 0) False False
 
 newtype Dealer = Dealer Hand
   deriving (Eq, Show)
@@ -35,14 +71,11 @@ data InsuranceChoice
   | DeclinedInsurance
   deriving (Eq, Show)
 
-data Bet = Bet
-  { current :: Chips,
-    chips :: Chips
-  }
-  deriving (Eq, Show)
+newtype Bet = Bet {current :: Chips}
+  deriving (Eq, Show, Num)
 
 data Command
-  = JoinGame PlayerId
+  = JoinGame Text
   | LeaveGame PlayerId
   | StartGame
   | PlaceBet PlayerId Chips
@@ -50,8 +83,8 @@ data Command
   | Hit PlayerId
   | Stand PlayerId
   | DoubleDown PlayerId
-  | -- \| Split PlayerId
-    Surrender PlayerId
+  | Split PlayerId
+  | Surrender PlayerId
   | TakeInsurance PlayerId
   | RejectInsurance PlayerId
   | DealerPlay
@@ -61,7 +94,7 @@ data Command
   deriving (Read)
 
 data Event
-  = PlayerJoined PlayerId
+  = PlayerJoined PlayerId Text
   | PlayerLeft PlayerId
   | GameStarted
   | BetPlaced PlayerId Chips
@@ -71,16 +104,13 @@ data Event
   | HitCard PlayerId Card
   | PlayerStood PlayerId
   | PlayerDoubledDown PlayerId Card
+  | PlayerSplitHand PlayerId Card Card Card Card
   | PlayerSurrendered PlayerId
   | DealerPlayed Dealer
   | RoundResolved DealerOutcome (Map.Map PlayerId ResolvedResult)
   | GameRestarted
   | GameExited
-  deriving
-    ( -- | PlayerSplitHand PlayerId Card Card
-      Eq,
-      Show
-    )
+  deriving (Eq, Show)
 
 data DealerOutcome
   = DealerBlackjack
@@ -89,9 +119,9 @@ data DealerOutcome
   deriving (Eq, Show)
 
 data ResolvedResult = ResolvedResult
-  { outcome :: Outcome,
-    nextBet :: Bet,
-    netChips :: Int -- e.g. +50 for win, -50 for loss
+  { handResults :: NonEmpty Outcome,
+    nextRoundBet :: Bet,
+    nextRoundChips :: Chips
   }
   deriving (Eq, Show)
 
@@ -118,6 +148,7 @@ data GameError
   | GameAlreadyStarted
   | PlayerNotFound
   | TooFewPlayers
+  | CantSplitMoreThanOnce
   | BadCommand
   | MalsizedBet
   | PlayerAlreadyBet
@@ -180,6 +211,10 @@ handSize (Hand hand) = length hand
 
 addCard :: Card -> Hand -> Hand
 addCard card (Hand hand) = Hand (card : hand)
+
+extractPair :: Hand -> Maybe (Card, Card)
+extractPair (Hand (a : b : _)) | rank a == rank b = Just (a, b)
+extractPair _ = Nothing
 
 data Card = Card {rank :: Rank, suit :: Suit}
   deriving (Show, Eq, Bounded)
