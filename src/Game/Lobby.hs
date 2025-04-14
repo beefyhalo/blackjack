@@ -2,13 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Game.Lobby
-  ( decideJoinGame,
-    decideLeaveGame,
-    decideStartGame,
-    evolveLobby,
-  )
-where
+module Game.Lobby (decideJoinGame, decideLeaveGame, decideStartGame, evolveLobby) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
