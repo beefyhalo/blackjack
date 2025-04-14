@@ -45,9 +45,9 @@ gameProjection =
   BaseMachineT
     { initialState = InitialState (SingleProjectionState mempty),
       action = \(SingleProjectionState summary) -> \case
-        RoundResolved _ outcomes ->
-          let winnings = undefined outcomes -- foldMap (\case (Win chips, _) -> Sum chips; _ -> 0) outcomes
-              losses = undefined outcomes -- foldMap (\case (Loss chips, _) -> Sum chips; _ -> 0) outcomes
+        RoundResolved _ _outcomes ->
+          let winnings = 0 -- foldMap (\case (Win chips, _) -> Sum chips; _ -> 0) outcomes
+              losses = 0 -- foldMap (\case (Loss chips, _) -> Sum chips; _ -> 0) outcomes
               summary' = summary <> Summary winnings losses 1
            in pureResult summary' (SingleProjectionState summary')
         _ -> pureResult summary (SingleProjectionState summary)
