@@ -39,18 +39,10 @@ decideRejectInsurance pid = \case
 
 decideResolveInsurance :: Game vertex -> Decision
 decideResolveInsurance = \case
-  Game {state = ResolvingInsuranceState GameContext {sessions, dealer = Dealer dealerHand}} ->
-    let isDealerBlackjack = isBlackjack dealerHand
-        insurancePayouts = fmap (payoutForInsurance isDealerBlackjack) sessions
+  Game {state = ResolvingInsuranceState GameContext {sessions, dealer}} ->
+    let insurancePayouts = fmap (payoutForInsurance dealer) sessions
      in Right (InsuranceResolved insurancePayouts)
   _ -> Left BadCommand
-  where
-    payoutForInsurance :: Bool -> PlayerSession -> InsurancePayout
-    payoutForInsurance hasBJ PlayerSession {insurance} = case insurance of
-      Just (TookInsurance amt)
-        | hasBJ -> WonInsurancePayout (amt * 2) -- 2:1 insurance payout if the dealer has a blackjack
-        | otherwise -> LostInsuranceBet amt
-      _ -> NoInsurance
 
 evolveOfferingInsurance :: Game OfferingInsurance -> Event -> EvolutionResult GameTopology Game OfferingInsurance output
 evolveOfferingInsurance game@Game {state = OfferingInsuranceState context@GameContext {sessions}} = \case

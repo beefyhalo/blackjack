@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Domain (module Domain) where
 
@@ -133,6 +134,12 @@ data DealerOutcome
   | DealerFinalScore Int
   deriving (Eq, Show)
 
+determineDealerOutcome :: Dealer -> DealerOutcome
+determineDealerOutcome (Dealer hand)
+  | isBlackjack hand = DealerBlackjack
+  | isBust hand = DealerBust
+  | otherwise = DealerFinalScore (score hand)
+
 data PlayerSummary = PlayerSummary
   { handOutcomes :: NonEmpty Outcome,
     netChipChange :: Int,
@@ -159,11 +166,46 @@ data LossReason
   | OutscoredByDealer
   deriving (Eq, Show)
 
+determineOutcome :: PlayerSession -> HandState -> DealerOutcome -> Outcome
+determineOutcome PlayerSession {hasSurrendered} HandState {hand} = \case
+  DealerBlackjack
+    | isBlackjack hand -> Push
+    | otherwise -> DealerWins OutscoredByDealer
+  DealerBust
+    | hasSurrendered -> DealerWins Surrendered -- Surrender always results in dealer win
+    | isBust hand -> DealerWins PlayerBust -- Both busting = dealer wins
+    | otherwise -> PlayerWins OutscoredDealer
+  DealerFinalScore dealerScore
+    | hasSurrendered -> DealerWins Surrendered -- Surrender always results in dealer win
+    | isBlackjack hand -> PlayerWins Blackjack
+    | isBust hand -> DealerWins PlayerBust
+    | otherwise -> case compare (score hand) dealerScore of
+        GT -> PlayerWins OutscoredDealer
+        LT -> DealerWins OutscoredByDealer
+        EQ -> Push
+
+chipsDelta :: Bet -> Outcome -> Chips
+chipsDelta Bet {current} = \case
+  PlayerWins Blackjack -> payout 1.5
+  PlayerWins _ -> payout 1.0
+  DealerWins Surrendered -> -(current `div` 2) -- Player loses half their bet when surrendering
+  DealerWins _ -> -current
+  Push -> 0
+  where
+    payout m = floor @Float (fromIntegral current * m)
+
 data InsurancePayout
   = WonInsurancePayout Chips
   | LostInsuranceBet Chips
   | NoInsurance
   deriving (Eq, Show)
+
+payoutForInsurance :: Dealer -> PlayerSession -> InsurancePayout
+payoutForInsurance (Dealer dealerHand) PlayerSession {insurance} = case insurance of
+  Just (TookInsurance amt)
+    | isBlackjack dealerHand -> WonInsurancePayout (amt * 2) -- 2:1 insurance payout if the dealer has a blackjack
+    | otherwise -> LostInsuranceBet amt
+  _ -> NoInsurance
 
 data GameError
   = PlayerAlreadyJoined

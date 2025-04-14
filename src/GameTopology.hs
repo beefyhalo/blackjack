@@ -90,7 +90,7 @@ data OpeningContext = OpeningContext
   }
 
 data ResolutionContext = ResolutionContext
-  { resolvedRounds :: Map.Map PlayerId PlayerSession,
+  { resolvedSessions :: Map.Map PlayerId PlayerSession,
     resolvedDealer :: Dealer,
     resolvedInsurancePayouts :: Map.Map PlayerId InsurancePayout
   }
