@@ -26,7 +26,7 @@ decideTakeInsurance pid sidebet = \case
     withPlayerRound pid rounds \PlayerRound {player = Player {stack}, insurance} ->
       if isJust insurance
         then Left PlayerAlreadyInsured
-        else withValidBet sidebet (chips stack) (Right . PlayerTookInsurance pid . current)
+        else withValidBet sidebet (chips stack) (Right . PlayerTookInsurance pid)
   _ -> Left BadCommand
 
 decideRejectInsurance :: PlayerId -> Game vertex -> Decision
@@ -47,8 +47,8 @@ decideResolveInsurance = \case
 
 evolveOfferingInsurance :: Game OfferingInsurance -> Event -> EvolutionResult GameTopology Game OfferingInsurance output
 evolveOfferingInsurance game@Game {state = OfferingInsuranceState context@GameContext {rounds}} = \case
-  PlayerTookInsurance pid chips ->
-    let rounds' = Map.adjust (\r -> r {insurance = Just (TookInsurance chips)}) pid rounds
+  PlayerTookInsurance pid bet ->
+    let rounds' = Map.adjust (\r -> r {insurance = Just (TookInsurance bet)}) pid rounds
      in advanceState rounds'
   PlayerDeclinedInsurance pid ->
     let rounds' = Map.adjust (\r -> r {insurance = Just DeclinedInsurance}) pid rounds

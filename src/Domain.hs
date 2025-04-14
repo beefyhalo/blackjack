@@ -81,7 +81,7 @@ visibleCard :: Dealer -> Card
 visibleCard (Dealer (Hand hand)) = head hand -- assuming dealer shows first card
 
 data InsuranceChoice
-  = TookInsurance Chips
+  = TookInsurance Bet
   | DeclinedInsurance
   deriving (Eq, Show)
 
@@ -119,7 +119,7 @@ data Event
   | GameStarted
   | BetPlaced PlayerId Bet
   | CardsDealt [(PlayerId, Hand)] Dealer
-  | PlayerTookInsurance PlayerId Chips
+  | PlayerTookInsurance PlayerId Bet
   | PlayerDeclinedInsurance PlayerId
   | InsuranceResolved (Map.Map PlayerId InsurancePayout)
   | HitCard PlayerId Card
@@ -207,7 +207,7 @@ data InsurancePayout
 
 payoutForInsurance :: Dealer -> PlayerRound -> InsurancePayout
 payoutForInsurance (Dealer dealerHand) PlayerRound {insurance} = case insurance of
-  Just (TookInsurance amt)
+  Just (TookInsurance (Bet amt))
     | isBlackjack dealerHand -> WonInsurancePayout (amt * 2) -- 2:1 insurance payout if the dealer has a blackjack
     | otherwise -> LostInsuranceBet amt
   _ -> NoInsurance
