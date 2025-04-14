@@ -25,11 +25,11 @@ evolveDealing :: Game DealingCards -> Event -> EvolutionResult GameTopology Game
 evolveDealing game@Game {state = DealingState players deck} = \case
   CardsDealt playerHands dealer@(Dealer dealerHand)
     | isAce (visibleCard dealer) ->
-        let sessions = fmap (initPlayerSession emptyHand) players
-         in EvolutionResult game {state = OfferingInsuranceState (GameContext deck' sessions dealer)}
+        let rounds = fmap (initPlayerRound emptyHand) players
+         in EvolutionResult game {state = OfferingInsuranceState (GameContext deck' rounds dealer)}
     | otherwise ->
-        let sessions = Map.fromList [(pid, initPlayerSession hand (players Map.! pid)) | (pid, hand) <- playerHands]
-            openingContext = OpeningContext (InsuranceContext (GameContext deck' sessions dealer) Map.empty) Set.empty
+        let rounds = Map.fromList [(pid, initPlayerRound hand (players Map.! pid)) | (pid, hand) <- playerHands]
+            openingContext = OpeningContext (InsuranceContext (GameContext deck' rounds dealer) Map.empty) Set.empty
          in EvolutionResult game {state = OpeningTurnState openingContext}
     where
       deck' =

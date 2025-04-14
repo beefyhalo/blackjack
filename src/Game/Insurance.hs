@@ -18,11 +18,12 @@ import Data.Maybe (isJust)
 import Data.Set qualified as Set
 import Domain
 import GameTopology
+import Prelude hiding (round)
 
 decideTakeInsurance :: PlayerId -> Bet -> Game vertex -> Decision
 decideTakeInsurance pid sidebet = \case
-  Game {state = OfferingInsuranceState GameContext {sessions}} ->
-    withSession pid sessions \PlayerSession {player = Player {stack}, insurance} ->
+  Game {state = OfferingInsuranceState GameContext {rounds}} ->
+    withPlayerRound pid rounds \PlayerRound {player = Player {stack}, insurance} ->
       if isJust insurance
         then Left PlayerAlreadyInsured
         else withValidBet sidebet (chips stack) (Right . PlayerTookInsurance pid . current)
@@ -30,8 +31,8 @@ decideTakeInsurance pid sidebet = \case
 
 decideRejectInsurance :: PlayerId -> Game vertex -> Decision
 decideRejectInsurance pid = \case
-  Game {state = OfferingInsuranceState GameContext {sessions}} ->
-    withSession pid sessions \PlayerSession {insurance} ->
+  Game {state = OfferingInsuranceState GameContext {rounds}} ->
+    withPlayerRound pid rounds \PlayerRound {insurance} ->
       if isJust insurance
         then Left PlayerAlreadyInsured
         else Right (PlayerDeclinedInsurance pid)
@@ -39,43 +40,43 @@ decideRejectInsurance pid = \case
 
 decideResolveInsurance :: Game vertex -> Decision
 decideResolveInsurance = \case
-  Game {state = ResolvingInsuranceState GameContext {sessions, dealer}} ->
-    let insurancePayouts = fmap (payoutForInsurance dealer) sessions
+  Game {state = ResolvingInsuranceState GameContext {rounds, dealer}} ->
+    let insurancePayouts = fmap (payoutForInsurance dealer) rounds
      in Right (InsuranceResolved insurancePayouts)
   _ -> Left BadCommand
 
 evolveOfferingInsurance :: Game OfferingInsurance -> Event -> EvolutionResult GameTopology Game OfferingInsurance output
-evolveOfferingInsurance game@Game {state = OfferingInsuranceState context@GameContext {sessions}} = \case
+evolveOfferingInsurance game@Game {state = OfferingInsuranceState context@GameContext {rounds}} = \case
   PlayerTookInsurance pid chips ->
-    let sessions' = Map.adjust (\s -> s {insurance = Just (TookInsurance chips)}) pid sessions
-     in advanceState sessions'
+    let rounds' = Map.adjust (\r -> r {insurance = Just (TookInsurance chips)}) pid rounds
+     in advanceState rounds'
   PlayerDeclinedInsurance pid ->
-    let sessions' = Map.adjust (\s -> s {insurance = Just DeclinedInsurance}) pid sessions
-     in advanceState sessions'
+    let rounds' = Map.adjust (\r -> r {insurance = Just DeclinedInsurance}) pid rounds
+     in advanceState rounds'
   _ -> EvolutionResult game
   where
-    advanceState sessions'
-      | all (isJust . insurance) sessions' = EvolutionResult game {state = ResolvingInsuranceState context {sessions = sessions'}}
-      | otherwise = EvolutionResult game {state = OfferingInsuranceState context {sessions = sessions'}}
+    advanceState rounds'
+      | all (isJust . insurance) rounds' = EvolutionResult game {state = ResolvingInsuranceState context {rounds = rounds'}}
+      | otherwise = EvolutionResult game {state = OfferingInsuranceState context {rounds = rounds'}}
 
 evolveResolvingInsurance :: Game ResolvingInsurance -> Event -> EvolutionResult GameTopology Game ResolvingInsurance output
-evolveResolvingInsurance game@Game {state = ResolvingInsuranceState context@GameContext {sessions, dealer}} = \case
+evolveResolvingInsurance game@Game {state = ResolvingInsuranceState context@GameContext {rounds, dealer}} = \case
   InsuranceResolved results ->
-    let sessions' = Map.mapWithKey settleInsurance results
-        openingContext = OpeningContext (InsuranceContext context {sessions = sessions'} results) Set.empty
+    let rounds' = Map.mapWithKey settleInsurance results
+        openingContext = OpeningContext (InsuranceContext context {rounds = rounds'} results) Set.empty
         Dealer dealerHand = dealer
      in if isBlackjack dealerHand
-          then EvolutionResult game {state = ResolvingState (ResolutionContext sessions' dealer results)}
+          then EvolutionResult game {state = ResolvingState (ResolutionContext rounds' dealer results)}
           else EvolutionResult game {state = OpeningTurnState openingContext}
   _ -> EvolutionResult game
   where
-    settleInsurance :: PlayerId -> InsurancePayout -> PlayerSession
+    settleInsurance :: PlayerId -> InsurancePayout -> PlayerRound
     settleInsurance pid result =
-      let session = sessions Map.! pid
-          Player {stack} = player session
+      let round = rounds Map.! pid
+          Player {stack} = player round
           delta = case result of
             WonInsurancePayout amt -> amt
             LostInsuranceBet amt -> -amt
             NoInsurance -> 0
-          player' = (player session) {stack = stack {chips = chips stack + delta}}
-       in session {player = player'}
+          player' = (player round) {stack = stack {chips = chips stack + delta}}
+       in round {player = player'}

@@ -75,7 +75,7 @@ type PlayerMap = Map.Map PlayerId Player
 
 data GameContext = GameContext
   { deck :: Deck,
-    sessions :: Map.Map PlayerId PlayerSession,
+    rounds :: Map.Map PlayerId PlayerRound,
     dealer :: Dealer
   }
 
@@ -90,7 +90,7 @@ data OpeningContext = OpeningContext
   }
 
 data ResolutionContext = ResolutionContext
-  { resolvedSessions :: Map.Map PlayerId PlayerSession,
+  { resolvedRounds :: Map.Map PlayerId PlayerRound,
     resolvedDealer :: Dealer,
     resolvedInsurancePayouts :: Map.Map PlayerId InsurancePayout
   }

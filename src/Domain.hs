@@ -33,7 +33,7 @@ data PlayerStack = PlayerStack
   }
   deriving (Eq, Show)
 
-data PlayerSession = PlayerSession
+data PlayerRound = PlayerRound
   { player :: Player,
     hands :: Z.Zipper HandState,
     insurance :: Maybe InsuranceChoice,
@@ -41,22 +41,22 @@ data PlayerSession = PlayerSession
   }
   deriving (Eq, Show)
 
-initPlayerSession :: Hand -> Player -> PlayerSession
-initPlayerSession hand player =
-  let handState = initHandState hand
-   in PlayerSession player (Z.fromNonEmpty $ pure handState) Nothing False
-
-hasCompletedTurn :: PlayerSession -> Bool
-hasCompletedTurn PlayerSession {hasSurrendered, hands} =
+hasCompletedTurn :: PlayerRound -> Bool
+hasCompletedTurn PlayerRound {hasSurrendered, hands} =
   hasSurrendered || all (\h -> hasStood h || hasDoubledDown h) hands
 
-withSession ::
+initPlayerRound :: Hand -> Player -> PlayerRound
+initPlayerRound hand player =
+  let handState = initHandState hand
+   in PlayerRound player (Z.fromNonEmpty $ pure handState) Nothing False
+
+withPlayerRound ::
   PlayerId ->
-  Map.Map PlayerId PlayerSession ->
-  (PlayerSession -> Either GameError a) ->
+  Map.Map PlayerId PlayerRound ->
+  (PlayerRound -> Either GameError a) ->
   Either GameError a
-withSession pid sessions f =
-  maybe (Left PlayerSessionNotFound) f (Map.lookup pid sessions)
+withPlayerRound pid rounds f =
+  maybe (Left PlayerRoundNotFound) f (Map.lookup pid rounds)
 
 data HandState = HandState
   { hand :: Hand,
@@ -166,8 +166,8 @@ data LossReason
   | OutscoredByDealer
   deriving (Eq, Show)
 
-determineOutcome :: PlayerSession -> HandState -> DealerOutcome -> Outcome
-determineOutcome PlayerSession {hasSurrendered} HandState {hand} = \case
+determineOutcome :: PlayerRound -> HandState -> DealerOutcome -> Outcome
+determineOutcome PlayerRound {hasSurrendered} HandState {hand} = \case
   DealerBlackjack
     | isBlackjack hand -> Push
     | otherwise -> DealerWins OutscoredByDealer
@@ -200,8 +200,8 @@ data InsurancePayout
   | NoInsurance
   deriving (Eq, Show)
 
-payoutForInsurance :: Dealer -> PlayerSession -> InsurancePayout
-payoutForInsurance (Dealer dealerHand) PlayerSession {insurance} = case insurance of
+payoutForInsurance :: Dealer -> PlayerRound -> InsurancePayout
+payoutForInsurance (Dealer dealerHand) PlayerRound {insurance} = case insurance of
   Just (TookInsurance amt)
     | isBlackjack dealerHand -> WonInsurancePayout (amt * 2) -- 2:1 insurance payout if the dealer has a blackjack
     | otherwise -> LostInsuranceBet amt
@@ -211,7 +211,7 @@ data GameError
   = PlayerAlreadyJoined
   | GameAlreadyStarted
   | PlayerNotFound
-  | PlayerSessionNotFound
+  | PlayerRoundNotFound
   | TooFewPlayers
   | PlayerAlreadyActed
   | BadCommand
