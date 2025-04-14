@@ -89,4 +89,5 @@ test-suite blackjack-test
   build-depends:
       base >=4.7 && <5
     , blackjack
+    , hedgehog
   default-language: GHC2021

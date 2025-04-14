@@ -26,17 +26,23 @@ import Prelude hiding (round)
 
 decideHit :: PlayerId -> Game vertex -> Decision
 decideHit pid = \case
-  Game {state = PlayerTurnState InsuranceContext {context = GameContext {deck, rounds}}} ->
-    withPlayerRound pid rounds \_ -> case drawCard deck of
-      Just (card, _) -> Right (HitCard pid card)
-      Nothing -> Left EmptyDeck
+  Game {state = OpeningTurnState OpeningContext {insuranceContext}} -> hit insuranceContext
+  Game {state = PlayerTurnState insuranceContext} -> hit insuranceContext
   _ -> Left BadCommand
+  where
+    hit InsuranceContext {context = GameContext {deck, rounds}} =
+      withPlayerRound pid rounds \_ -> case drawCard deck of
+        Just (card, _) -> Right (HitCard pid card)
+        Nothing -> Left EmptyDeck
 
 decideStand :: PlayerId -> Game vertex -> Decision
 decideStand pid = \case
-  Game {state = PlayerTurnState InsuranceContext {context = GameContext {rounds}}} ->
-    withPlayerRound pid rounds \_ -> Right (PlayerStood pid)
+  Game {state = OpeningTurnState OpeningContext {insuranceContext}} -> stand insuranceContext
+  Game {state = PlayerTurnState insuranceContext} -> stand insuranceContext
   _ -> Left BadCommand
+  where
+    stand InsuranceContext {context = GameContext {rounds}} =
+      withPlayerRound pid rounds \_ -> Right (PlayerStood pid)
 
 decideDoubleDown :: PlayerId -> Game vertex -> Decision
 decideDoubleDown pid = \case

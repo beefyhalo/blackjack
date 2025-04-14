@@ -73,3 +73,4 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - blackjack
+    - hedgehog
