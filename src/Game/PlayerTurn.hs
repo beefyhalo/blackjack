@@ -132,7 +132,6 @@ evolvePlayerTurn game@Game {state = PlayerTurnState context@InsuranceContext {co
     advanceState deck' pid adjustRound =
       let moveHandFocus round@PlayerRound {hands = h} = round {hands = fromMaybe (Z.start h) (Z.right h)}
           rounds' = Map.adjust (moveHandFocus . adjustRound) pid rounds
-          hasLost PlayerRound {hands, hasSurrendered} = hasSurrendered || all (isBust . hand) hands
        in if
             | all hasLost rounds' -> EvolutionResult game {state = ResolvingState (ResolutionContext rounds' dealer insurancePayouts)}
             | all hasCompletedTurn rounds' -> EvolutionResult game {state = DealerTurnState context {context = GameContext deck' rounds' dealer}}

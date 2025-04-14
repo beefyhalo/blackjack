@@ -9,6 +9,7 @@ import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Vector qualified as V
 import System.Random (StdGen, randomR)
+import Prelude hiding (round)
 
 type Chips = Int
 
@@ -41,9 +42,13 @@ data PlayerRound = PlayerRound
   }
   deriving (Eq, Show)
 
+hasLost :: PlayerRound -> Bool
+hasLost PlayerRound {hands, hasSurrendered} =
+  hasSurrendered || all (isBust . hand) hands
+
 hasCompletedTurn :: PlayerRound -> Bool
-hasCompletedTurn PlayerRound {hasSurrendered, hands} =
-  hasSurrendered || all (\h -> hasStood h || hasDoubledDown h) hands
+hasCompletedTurn round@PlayerRound {hands} =
+  hasLost round || all (\h -> hasStood h || hasDoubledDown h) hands
 
 initPlayerRound :: Hand -> Player -> PlayerRound
 initPlayerRound hand player =
