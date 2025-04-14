@@ -2,9 +2,9 @@ name: blackjack
 version: 0.1.0.0
 github: "beefyhalo/blackjack"
 license: BSD-3-Clause
-author: "Author name here"
+author: "Kevin Horlick"
 maintainer: "example@example.com"
-copyright: "2025 Author name here"
+copyright: "2025 Kevin Horlick"
 
 extra-source-files:
 - README.md

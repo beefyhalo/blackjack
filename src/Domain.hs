@@ -55,6 +55,10 @@ initPlayerRound hand player =
   let handState = initHandState hand
    in PlayerRound player (Z.fromNonEmpty $ pure handState) Nothing False
 
+modifyCurrentHand :: (HandState -> HandState) -> PlayerRound -> PlayerRound
+modifyCurrentHand f round@PlayerRound {hands} =
+  round {hands = Z.replace (f (Z.current hands)) hands}
+
 withPlayerRound ::
   PlayerId ->
   Map.Map PlayerId PlayerRound ->
@@ -89,9 +93,9 @@ newtype Bet = Bet {current :: Chips}
   deriving (Eq, Ord, Show, Read, Num)
 
 withValidBet :: Bet -> Chips -> (Bet -> Either GameError a) -> Either GameError a
-withValidBet bet chips k
+withValidBet bet chips f
   | bet <= 0 || current bet > chips = Left MalsizedBet
-  | otherwise = k bet
+  | otherwise = f bet
 
 data Command
   = JoinGame Text

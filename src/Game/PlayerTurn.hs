@@ -107,32 +107,26 @@ evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insuranceC
 evolvePlayerTurn :: Game PlayerTurn -> Event -> EvolutionResult GameTopology Game PlayerTurn output
 evolvePlayerTurn game@Game {state = PlayerTurnState context@InsuranceContext {context = GameContext deck rounds dealer, insurancePayouts}} = \case
   HitCard pid card ->
-    let adjust round@PlayerRound {hands} =
-          let handState = Z.current hands
-              handState' = handState {hand = addCard card (hand handState)}
-           in round {hands = Z.replace handState' hands}
-     in advanceState nextDeck pid adjust
+    let update = modifyCurrentHand \h -> h {hand = addCard card (hand h)}
+     in advanceState nextDeck pid update
   PlayerStood pid ->
-    let adjust round@PlayerRound {hands} =
-          let handState = (Z.current hands) {hasStood = True}
-           in round {hands = Z.replace handState hands}
-     in advanceState deck pid adjust
+    let update = modifyCurrentHand \h -> h {hasStood = True}
+     in advanceState deck pid update
   PlayerDoubledDown pid card ->
-    let adjust round@PlayerRound {hands} =
-          let handState@HandState {hand, bet} = Z.current hands
-              handState' = handState {hand = addCard card hand, bet = bet * 2, hasDoubledDown = True}
-           in round {hands = Z.replace handState' hands}
-     in advanceState nextDeck pid adjust
+    let update = modifyCurrentHand \h -> h {hand = addCard card (hand h), bet = bet h * 2, hasDoubledDown = True}
+     in advanceState nextDeck pid update
   PlayerSurrendered pid ->
-    let adjust round = round {hasSurrendered = True}
-     in advanceState deck pid adjust
+    let update round = round {hasSurrendered = True}
+     in advanceState deck pid update
   _ -> EvolutionResult game
   where
     nextDeck = deck {drawn = drawn deck + 1}
     advanceState deck' pid adjustRound =
       let moveHandFocus round@PlayerRound {hands = h} = round {hands = fromMaybe (Z.start h) (Z.right h)}
           rounds' = Map.adjust (moveHandFocus . adjustRound) pid rounds
+          everyoneLost = all hasLost rounds'
+          everyoneDone = all hasCompletedTurn rounds'
        in if
-            | all hasLost rounds' -> EvolutionResult game {state = ResolvingState (ResolutionContext rounds' dealer insurancePayouts)}
-            | all hasCompletedTurn rounds' -> EvolutionResult game {state = DealerTurnState context {context = GameContext deck' rounds' dealer}}
+            | everyoneLost -> EvolutionResult game {state = ResolvingState (ResolutionContext rounds' dealer insurancePayouts)}
+            | everyoneDone -> EvolutionResult game {state = DealerTurnState context {context = GameContext deck' rounds' dealer}}
             | otherwise -> EvolutionResult game {state = PlayerTurnState context {context = GameContext deck' rounds' dealer}}
