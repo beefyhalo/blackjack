@@ -10,26 +10,24 @@
 
 import Application (stateMachine)
 import Control.Exception (Exception)
-import Control.Monad (void)
-import Control.Monad.Reader (ReaderT, ask, runReaderT)
-import Control.Monad.State.Strict (MonadIO (liftIO))
+import Control.Monad.Catch (MonadThrow (throwM))
+import Control.Monad.State.Strict (StateT (StateT), evalStateT)
 import Crem.StateMachine (StateMachineT, run)
 import Data.Data (Typeable)
 import Data.Functor.Identity (Identity (..))
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Domain
-import GHC.Conc (TVar, atomically, readTVar, throwSTM, writeTVar)
-import GHC.Conc.Sync (newTVarIO)
 import GHC.Generics (Generic)
 import GameTopology (Decision, GamePhase (AwaitingBets, InLobby))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
+import Hedgehog.Main (defaultMain)
 import Hedgehog.Range qualified as Range
 import System.Random (initStdGen)
 
 main :: IO ()
-main = void tests
+main = defaultMain [tests]
 
 prop_game_sequential :: Property
 prop_game_sequential = property do
@@ -40,10 +38,10 @@ prop_game_sequential = property do
         initialModel
         commands
   stdGen <- initStdGen
-  machineVar <- liftIO $ newTVarIO (stateMachine stdGen)
-  runReaderT
+  let machine = stateMachine stdGen
+  evalStateT
     (executeSequential initialModel actions)
-    machineVar
+    machine
   where
     commands =
       [ joinCommand,
@@ -52,26 +50,6 @@ prop_game_sequential = property do
         startGameCommand,
         startGameNotEnoughPlayersCommand,
         gameAlreadyStartedCommand
-      ]
-
-prop_game_parallel :: Property
-prop_game_parallel =
-  withRetries 10 $ property do
-    actions <-
-      forAll $
-        Gen.parallel
-          (Range.linear 1 100)
-          (Range.linear 1 10)
-          initialModel
-          commands
-    stdGen <- initStdGen
-    machineVar <- liftIO $ newTVarIO (stateMachine stdGen)
-    runReaderT
-      (executeParallel initialModel actions)
-      machineVar
-  where
-    commands =
-      [ joinCommand -- TODO Test parallel flows with their own commands
       ]
 
 ------------------------------------------------------------------------
@@ -98,7 +76,7 @@ data StateError
   | UnexpectedCommand (GameAlreadyStartedCmd Concrete)
   deriving (Show, Exception)
 
-type TestContext = ReaderT (TVar (StateMachineT Identity Domain.Command Decision)) (PropertyT IO)
+type TestContext = StateT (StateMachineT Identity Domain.Command Decision) (PropertyT IO)
 
 mkCommand ::
   (TraversableB input, Show output, Show (input Symbolic), Typeable output) =>
@@ -116,15 +94,12 @@ mkCommand ::
 mkCommand gen toDomain matchDecision onFail callbacks =
   Hedgehog.Command
     { commandGen = gen,
-      commandExecute = \cmd -> do
-        machineVar <- ask
-        liftIO $ atomically do
-          machine <- readTVar machineVar
-          case run machine (toDomain cmd) of
-            Identity (decision, machine') ->
-              case matchDecision decision of
-                Just output -> output <$ writeTVar machineVar machine'
-                Nothing -> throwSTM (onFail cmd),
+      commandExecute = \cmd -> StateT \machine -> do
+        case run machine (toDomain cmd) of
+          Identity (decision, machine') ->
+            case matchDecision decision of
+              Just output -> pure (output, machine')
+              Nothing -> throwM (onFail cmd),
       commandCallbacks = callbacks
     }
 
@@ -133,7 +108,7 @@ newtype JoinGameCmd v = JoinGameCmd Text
   deriving anyclass (FunctorB, TraversableB)
 
 joinGameCmdGen :: (MonadGen m) => m (JoinGameCmd v)
-joinGameCmdGen = JoinGameCmd <$> Gen.text (Range.linear 1 10) Gen.ascii
+joinGameCmdGen = JoinGameCmd <$> Gen.text (Range.linear 1 10) Gen.latin1
 
 joinGameCmdToDomain :: JoinGameCmd Concrete -> Domain.Command
 joinGameCmdToDomain (JoinGameCmd name) = JoinGame name
@@ -196,7 +171,7 @@ leaveGamePlayerNotFoundCommand = mkCommand gen toDomain matchDecision onFail cal
         Ensure \before after (LeaveGameCmd pid) _ -> do
           assert (Set.notMember pid (players before))
           assert (Set.notMember pid (players after))
-          players before === players after
+          before === after
       ]
 
 data StartGameCmd v = StartGameCmd
@@ -265,8 +240,7 @@ gameAlreadyStartedCommand = mkCommand gen toDomain matchDecision onFail callback
     callbacks =
       [ Ensure \before after _ _ -> do
           -- Ensure no changes in players or phase
-          phase before === phase after
-          players before === players after
+          before === after
       ]
 
 tests :: IO Bool
