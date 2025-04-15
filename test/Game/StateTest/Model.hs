@@ -18,13 +18,15 @@ initialModel :: Model v
 initialModel =
   Model
     { players = Set.empty,
-      leftPlayers = Set.empty,
+      playersLeft = Set.empty,
+      playersBetted = Set.empty,
       phase = InLobby
     }
 
 data Model v = Model
   { players :: Set.Set (Var PlayerId v),
-    leftPlayers :: Set.Set (Var PlayerId v),
+    playersLeft :: Set.Set (Var PlayerId v),
+    playersBetted :: Set.Set (Var PlayerId v),
     phase :: GamePhase
   }
   deriving (Eq, Show)

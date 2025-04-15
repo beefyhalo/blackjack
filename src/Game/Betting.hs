@@ -16,7 +16,7 @@ decidePlaceBet pid bet = \case
     case Map.lookup pid players of
       Nothing -> Left (PlayerNotFound pid)
       Just Player {stack = PlayerStack currentBet chips}
-        | currentBet > 0 -> Left PlayerAlreadyBet
+        | currentBet > 0 -> Left (PlayerAlreadyBet pid)
         | otherwise -> withValidBet bet chips (Right . BetPlaced pid)
   _ -> Left BadCommand
 

@@ -57,7 +57,7 @@ leaveGameCmdGen :: (MonadGen m) => Model v -> m (LeaveGameCmd v)
 leaveGameCmdGen = fmap LeaveGameCmd . Gen.element . players
 
 leaveGamePlayerNotFoundCmdGen :: (MonadGen m) => Model v -> m (LeaveGameCmd v)
-leaveGamePlayerNotFoundCmdGen = fmap LeaveGameCmd . Gen.element . leftPlayers
+leaveGamePlayerNotFoundCmdGen = fmap LeaveGameCmd . Gen.element . playersLeft
 
 leaveGameCmdToDomain :: LeaveGameCmd Concrete -> Domain.Command
 leaveGameCmdToDomain (LeaveGameCmd pid) = LeaveGame (concrete pid)
@@ -71,7 +71,7 @@ leaveCommand = mkCommand gen toDomain matchDecision failReason callbacks
     failReason = LeaveFailed
     callbacks =
       [ Require \model (LeaveGameCmd pid) -> Set.member pid (players model),
-        Update \model (LeaveGameCmd pid) _ -> model {players = Set.delete pid (players model), leftPlayers = Set.insert pid (leftPlayers model)},
+        Update \model (LeaveGameCmd pid) _ -> model {players = Set.delete pid (players model), playersLeft = Set.insert pid (playersLeft model)},
         Ensure \before after _ pid -> do
           let playerId = Var (Concrete pid)
           assert (Set.member playerId (players before))
@@ -82,7 +82,7 @@ leaveCommand = mkCommand gen toDomain matchDecision failReason callbacks
 leaveGamePlayerNotFoundCommand :: (MonadGen gen) => Hedgehog.Command gen TestContext Model
 leaveGamePlayerNotFoundCommand = mkCommand gen toDomain matchDecision failReason callbacks
   where
-    gen model = if phase model == InLobby && not (null (leftPlayers model)) then Just (leaveGamePlayerNotFoundCmdGen model) else Nothing
+    gen model = if phase model == InLobby && not (null (playersLeft model)) then Just (leaveGamePlayerNotFoundCmdGen model) else Nothing
     toDomain = leaveGameCmdToDomain
     matchDecision = \case Left (PlayerNotFound pid) -> Just pid; _ -> Nothing
     failReason = LeaveFailed
@@ -111,7 +111,8 @@ startGameCommand = mkCommand gen toDomain matchDecision failReason callbacks
     matchDecision = \case Right GameStarted -> Just (); _ -> Nothing
     failReason = StartFailed
     callbacks =
-      [ Update \model _ _ -> model {phase = AwaitingBets},
+      [ Require \model _ -> not (null (players model)),
+        Update \model _ _ -> model {phase = AwaitingBets},
         Ensure \before after _ _ -> do
           phase before === InLobby
           phase after === AwaitingBets
@@ -158,7 +159,8 @@ gameAlreadyStartedCommand = mkCommand gen toDomain matchDecision failReason call
     matchDecision = \case Left GameAlreadyStarted -> Just (); _ -> Nothing
     failReason = UnexpectedCommand
     callbacks =
-      [ Ensure \before after _ _ -> do
+      [ Require \model _ -> phase model /= InLobby,
+        Ensure \before after _ _ -> do
           -- Ensure no changes in players or phase
           before === after
       ]

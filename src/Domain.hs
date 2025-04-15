@@ -225,7 +225,7 @@ data GameError
   | PlayerAlreadyActed
   | BadCommand
   | MalsizedBet
-  | PlayerAlreadyBet
+  | PlayerAlreadyBet PlayerId
   | PlayerAlreadyInsured
   | EmptyDeck
   | PlayersStillBetting
