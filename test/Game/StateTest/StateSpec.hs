@@ -6,6 +6,7 @@ module Game.StateTest.StateSpec (tests) where
 import Application (stateMachine)
 import Control.Monad.State.Strict (evalStateT)
 import Game.StateTest.Betting
+import Game.StateTest.Dealing
 import Game.StateTest.Lobby
 import Game.StateTest.Model (initialModel)
 import Hedgehog
@@ -37,6 +38,7 @@ prop_game_sequential = property do
         startGameCommand,
         startGameNotEnoughPlayersCommand,
         gameAlreadyStartedCommand,
-        placeBetCommand
-        -- placeDupeBetCommand
+        placeBetCommand,
+        -- placeDupeBetCommand,
+        dealCommand
       ]
