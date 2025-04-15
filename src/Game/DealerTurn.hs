@@ -16,10 +16,9 @@ decideDealerPlay = \case
   Game {state = PlayerTurnState {}} -> Left PlayersStillPlaying
   _ -> Left BadCommand
   where
-    -- Draw cards until the hand has at least 17 points
     dealerTurn :: Dealer -> Deck -> Dealer
     dealerTurn dealer@(Dealer hand) deck
-      | score hand >= 17 = dealer
+      | not (dealerShouldHit dealer) = dealer
       | otherwise = case drawCard deck of
           Nothing -> dealer
           Just (card, newDeck) -> dealerTurn (Dealer (addCard card hand)) newDeck

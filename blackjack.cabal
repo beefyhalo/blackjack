@@ -81,6 +81,7 @@ test-suite blackjack-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Game.DomainSpec
       Game.StateTest.Betting
       Game.StateTest.Dealing
       Game.StateTest.Lobby

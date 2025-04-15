@@ -84,6 +84,10 @@ newtype Dealer = Dealer Hand
 visibleCard :: Dealer -> Card
 visibleCard (Dealer (Hand hand)) = head hand -- assuming dealer shows first card
 
+-- Hit if the dealer has less than 17 points
+dealerShouldHit :: Dealer -> Bool
+dealerShouldHit (Dealer hand) = score hand < 17
+
 data InsuranceChoice
   = TookInsurance Bet
   | DeclinedInsurance
@@ -286,9 +290,13 @@ handSize (Hand hand) = length hand
 addCard :: Card -> Hand -> Hand
 addCard card (Hand hand) = Hand (card : hand)
 
-extractPair :: Hand -> Maybe (Card, Card)
-extractPair (Hand (a : b : _)) | rank a == rank b = Just (a, b)
-extractPair _ = Nothing
+extractSplitPair :: Hand -> Maybe (Card, Card)
+extractSplitPair hand@(Hand [a, b]) | canSplit hand = Just (a, b)
+extractSplitPair _ = Nothing
+
+canSplit :: Hand -> Bool
+canSplit (Hand [a, b]) = rank a == rank b
+canSplit _ = False
 
 data Card = Card {rank :: Rank, suit :: Suit}
   deriving (Show, Eq, Bounded)

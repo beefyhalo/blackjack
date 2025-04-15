@@ -73,7 +73,7 @@ decideSplit pid = \case
           let HandState {hand} = Z.current hands
            in if Set.member pid readyPlayers
                 then Left PlayerAlreadyActed -- TODO allow configuration
-                else case extractPair hand of
+                else case extractSplitPair hand of
                   Just (c1, c2) -> maybe (Left EmptyDeck) Right do
                     (d1, deck') <- drawCard deck
                     (d2, _) <- drawCard deck'
