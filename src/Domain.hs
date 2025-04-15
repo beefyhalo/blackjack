@@ -115,7 +115,7 @@ data Command
   | ResolveRound
   | RestartGame
   | ExitGame
-  deriving (Read)
+  deriving (Eq, Read, Show)
 
 data Event
   = PlayerJoined PlayerId Text
@@ -219,7 +219,7 @@ payoutForInsurance (Dealer dealerHand) PlayerRound {insurance} = case insurance 
 data GameError
   = PlayerAlreadyJoined
   | GameAlreadyStarted
-  | PlayerNotFound
+  | PlayerNotFound PlayerId
   | PlayerRoundNotFound
   | TooFewPlayers
   | PlayerAlreadyActed

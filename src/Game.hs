@@ -5,7 +5,7 @@ module Game (baseMachine, decider) where
 
 import Crem.BaseMachine (BaseMachine, InitialState (..))
 import Crem.Decider (Decider (..), EvolutionResult (EvolutionResult), deciderMachine)
-import Domain (Command (..), Event (GameExited), GameError)
+import Domain (Command (..), Event (GameExited))
 import Game.Betting
 import Game.DealerTurn
 import Game.Dealing
@@ -17,10 +17,10 @@ import Game.Result
 import GameTopology
 import System.Random (StdGen)
 
-baseMachine :: StdGen -> BaseMachine GameTopology Command (Either GameError Event)
-baseMachine stdGen = deciderMachine (decider (InitialState (Game stdGen (LobbyState mempty))))
+baseMachine :: StdGen -> BaseMachine GameTopology Command Decision
+baseMachine stdGen = deciderMachine (decider (InitialState (Game stdGen 0 (LobbyState mempty))))
 
-decider :: InitialState Game -> Decider GameTopology Command (Either GameError Event)
+decider :: InitialState Game -> Decider GameTopology Command Decision
 decider initialState =
   Decider
     { deciderInitialState = initialState,

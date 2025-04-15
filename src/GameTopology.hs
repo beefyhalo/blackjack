@@ -52,6 +52,7 @@ deriving via AllVertices GameVertex instance RenderableVertices GameVertex
 
 data Game (vertex :: GameVertex) = Game
   { stdGen :: StdGen,
+    nextPlayerId :: Int,
     state :: GameState vertex
   }
 

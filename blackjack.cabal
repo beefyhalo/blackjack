@@ -73,6 +73,7 @@ executable blackjack-exe
   build-depends:
       base >=4.7 && <5
     , blackjack
+    , crem
     , random
   default-language: GHC2021
 
@@ -89,5 +90,13 @@ test-suite blackjack-test
   build-depends:
       base >=4.7 && <5
     , blackjack
+    , containers
+    , crem
+    , exceptions
     , hedgehog
+    , mmorph
+    , mtl
+    , random
+    , text
+    , transformers
   default-language: GHC2021

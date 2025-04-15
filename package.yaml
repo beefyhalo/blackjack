@@ -61,6 +61,7 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - blackjack
+    - crem
     - random
 
 tests:
@@ -73,4 +74,12 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - blackjack
+    - crem
     - hedgehog
+    - text
+    - mmorph
+    - exceptions
+    - mtl
+    - transformers
+    - random
+    - containers

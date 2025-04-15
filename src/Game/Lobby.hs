@@ -12,8 +12,8 @@ import GameTopology
 
 decideJoinGame :: Text -> Game vertex -> Decision
 decideJoinGame name = \case
-  Game {state = LobbyState players} ->
-    let pid = PlayerId (length players)
+  Game {state = LobbyState {}, nextPlayerId} ->
+    let pid = PlayerId nextPlayerId
      in Right (PlayerJoined pid name)
   _ -> Left GameAlreadyStarted
 
@@ -21,7 +21,7 @@ decideLeaveGame :: PlayerId -> Game vertex -> Decision
 decideLeaveGame pid = \case
   Game {state = LobbyState players}
     | Map.member pid players -> Right (PlayerLeft pid)
-    | otherwise -> Left PlayerNotFound
+    | otherwise -> Left (PlayerNotFound pid)
   _ -> Left GameAlreadyStarted
 
 decideStartGame :: Game vertex -> Decision
@@ -35,7 +35,7 @@ evolveLobby :: Game InLobby -> Event -> EvolutionResult GameTopology Game InLobb
 evolveLobby game@Game {state = LobbyState players} = \case
   PlayerJoined pid name ->
     let players' = Map.insert pid (newPlayer pid name) players
-     in EvolutionResult game {state = LobbyState players'}
+     in EvolutionResult game {state = LobbyState players', nextPlayerId = nextPlayerId game + 1}
   PlayerLeft pid ->
     let players' = Map.delete pid players
      in EvolutionResult game {state = LobbyState players'}

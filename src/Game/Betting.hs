@@ -14,7 +14,7 @@ decidePlaceBet :: PlayerId -> Bet -> Game vertex -> Decision
 decidePlaceBet pid bet = \case
   Game {state = BettingState players} ->
     case Map.lookup pid players of
-      Nothing -> Left PlayerNotFound
+      Nothing -> Left (PlayerNotFound pid)
       Just Player {stack = PlayerStack currentBet chips}
         | currentBet > 0 -> Left PlayerAlreadyBet
         | otherwise -> withValidBet bet chips (Right . BetPlaced pid)
