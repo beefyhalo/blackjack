@@ -38,12 +38,21 @@ prop_game_sequential = property do
       Gen.sequential
         (Range.linear 1 100)
         initialModel
-        availableCommands
+        commands
   stdGen <- initStdGen
   machineVar <- liftIO $ newTVarIO (stateMachine stdGen)
   runReaderT
     (executeSequential initialModel actions)
     machineVar
+  where
+    commands =
+      [ joinCommand,
+        leaveCommand,
+        leaveGamePlayerNotFoundCommand,
+        startGameCommand,
+        startGameNotEnoughPlayersCommand,
+        gameAlreadyStartedCommand
+      ]
 
 prop_game_parallel :: Property
 prop_game_parallel =
@@ -54,12 +63,16 @@ prop_game_parallel =
           (Range.linear 1 100)
           (Range.linear 1 10)
           initialModel
-          availableCommands
+          commands
     stdGen <- initStdGen
     machineVar <- liftIO $ newTVarIO (stateMachine stdGen)
     runReaderT
       (executeParallel initialModel actions)
       machineVar
+  where
+    commands =
+      [ joinCommand -- TODO Test parallel flows with their own commands
+      ]
 
 ------------------------------------------------------------------------
 
@@ -67,20 +80,13 @@ initialModel :: Model v
 initialModel =
   Model
     { players = Set.empty,
+      leftPlayers = Set.empty,
       phase = InLobby
     }
 
-availableCommands :: [Hedgehog.Command Gen TestContext Model]
-availableCommands =
-  [ joinCommand,
-    leaveCommand,
-    startGameCommand,
-    startGameNotEnoughPlayersCommand,
-    gameAlreadyStartedCommand
-  ]
-
 data Model v = Model
   { players :: Set.Set (Var PlayerId v),
+    leftPlayers :: Set.Set (Var PlayerId v),
     phase :: GamePhase
   }
   deriving (Eq, Show)
@@ -115,8 +121,8 @@ mkCommand gen toDomain matchDecision onFail callbacks =
         liftIO $ atomically do
           machine <- readTVar machineVar
           case run machine (toDomain cmd) of
-            Identity (event, machine') ->
-              case matchDecision event of
+            Identity (decision, machine') ->
+              case matchDecision decision of
                 Just output -> output <$ writeTVar machineVar machine'
                 Nothing -> throwSTM (onFail cmd),
       commandCallbacks = callbacks
@@ -140,8 +146,7 @@ joinCommand = mkCommand gen toDomain matchDecision onFail callbacks
     matchDecision = \case Right (PlayerJoined pid _) -> Just pid; _ -> Nothing
     onFail = TryJoinAfterStart
     callbacks =
-      [ Require \model _ -> phase model == InLobby,
-        Update \model _ output -> model {players = Set.insert output (players model)},
+      [ Update \model _ output -> model {players = Set.insert output (players model)},
         Ensure \before after _ pid -> do
           let playerId = Var (Concrete pid)
           assert (Set.notMember playerId (players before))
@@ -156,6 +161,9 @@ newtype LeaveGameCmd v = LeaveGameCmd (Var PlayerId v)
 leaveGameCmdGen :: (MonadGen m) => Model v -> m (LeaveGameCmd v)
 leaveGameCmdGen = fmap LeaveGameCmd . Gen.element . players
 
+leaveGamePlayerNotFoundCmdGen :: (MonadGen m) => Model v -> m (LeaveGameCmd v)
+leaveGamePlayerNotFoundCmdGen = fmap LeaveGameCmd . Gen.element . leftPlayers
+
 leaveGameCmdToDomain :: LeaveGameCmd Concrete -> Domain.Command
 leaveGameCmdToDomain (LeaveGameCmd pid) = LeaveGame (concrete pid)
 
@@ -168,7 +176,7 @@ leaveCommand = mkCommand gen toDomain matchDecision onFail callbacks
     onFail _ = LeaveFailed
     callbacks =
       [ Require \model (LeaveGameCmd pid) -> Set.member pid (players model),
-        Update \model (LeaveGameCmd pid) _ -> model {players = Set.delete pid (players model)},
+        Update \model (LeaveGameCmd pid) _ -> model {players = Set.delete pid (players model), leftPlayers = Set.insert pid (leftPlayers model)},
         Ensure \before after _ pid -> do
           let playerId = Var (Concrete pid)
           assert (Set.member playerId (players before))
@@ -176,8 +184,20 @@ leaveCommand = mkCommand gen toDomain matchDecision onFail callbacks
           length (players before) - 1 === length (players after)
       ]
 
--- leaveFailedCommand :: (MonadGen gen) => Hedgehog.Command gen TestContext Model
--- leaveFailedCommand = mkCommand gen toDomain matchDecision onFail callbacks
+leaveGamePlayerNotFoundCommand :: (MonadGen gen) => Hedgehog.Command gen TestContext Model
+leaveGamePlayerNotFoundCommand = mkCommand gen toDomain matchDecision onFail callbacks
+  where
+    gen model = if phase model == InLobby && not (null (leftPlayers model)) then Just (leaveGamePlayerNotFoundCmdGen model) else Nothing
+    toDomain = leaveGameCmdToDomain
+    matchDecision = \case Left (PlayerNotFound pid) -> Just pid; _ -> Nothing
+    onFail _ = LeaveFailed
+    callbacks =
+      [ Require \model (LeaveGameCmd pid) -> Set.notMember pid (players model),
+        Ensure \before after (LeaveGameCmd pid) _ -> do
+          assert (Set.notMember pid (players before))
+          assert (Set.notMember pid (players after))
+          players before === players after
+      ]
 
 data StartGameCmd v = StartGameCmd
   deriving (Eq, Show, Generic, FunctorB, TraversableB)
@@ -196,8 +216,7 @@ startGameCommand = mkCommand gen toDomain matchDecision onFail callbacks
     matchDecision = \case Right GameStarted -> Just (); _ -> Nothing
     onFail _ = StartFailed
     callbacks =
-      [ Require \model _ -> phase model == InLobby && not (null (players model)),
-        Update \model _ _ -> model {phase = AwaitingBets},
+      [ Update \model _ _ -> model {phase = AwaitingBets},
         Ensure \before after _ _ -> do
           phase before === InLobby
           phase after === AwaitingBets
@@ -211,8 +230,7 @@ startGameNotEnoughPlayersCommand = mkCommand gen toDomain matchDecision onFail c
     matchDecision = \case Left TooFewPlayers -> Just (); _ -> Nothing
     onFail _ = StartFailed
     callbacks =
-      [ Require \model _ -> phase model == InLobby && null (players model),
-        Ensure \before after _ _ -> do
+      [ Ensure \before after _ _ -> do
           phase before === InLobby
           phase after === InLobby
       ]
@@ -245,8 +263,7 @@ gameAlreadyStartedCommand = mkCommand gen toDomain matchDecision onFail callback
     matchDecision = \case Left GameAlreadyStarted -> Just (); _ -> Nothing
     onFail = UnexpectedCommand
     callbacks =
-      [ Require \model _ -> phase model /= InLobby,
-        Ensure \before after _ _ -> do
+      [ Ensure \before after _ _ -> do
           -- Ensure no changes in players or phase
           phase before === phase after
           players before === players after
