@@ -20,7 +20,7 @@ import Domain
 import GameTopology
 import Prelude hiding (round)
 
-decideTakeInsurance :: PlayerId -> Bet -> Game vertex -> Decision
+decideTakeInsurance :: PlayerId -> Bet -> Game phase -> Decision
 decideTakeInsurance pid sidebet = \case
   Game {state = OfferingInsuranceState GameContext {rounds}} ->
     withPlayerRound pid rounds \PlayerRound {player = Player {stack}, insurance} ->
@@ -29,7 +29,7 @@ decideTakeInsurance pid sidebet = \case
         else withValidBet sidebet (chips stack) (Right . PlayerTookInsurance pid)
   _ -> Left BadCommand
 
-decideRejectInsurance :: PlayerId -> Game vertex -> Decision
+decideRejectInsurance :: PlayerId -> Game phase -> Decision
 decideRejectInsurance pid = \case
   Game {state = OfferingInsuranceState GameContext {rounds}} ->
     withPlayerRound pid rounds \PlayerRound {insurance} ->
@@ -38,7 +38,7 @@ decideRejectInsurance pid = \case
         else Right (PlayerDeclinedInsurance pid)
   _ -> Left BadCommand
 
-decideResolveInsurance :: Game vertex -> Decision
+decideResolveInsurance :: Game phase -> Decision
 decideResolveInsurance = \case
   Game {state = ResolvingInsuranceState GameContext {rounds, dealer}} ->
     let insurancePayouts = fmap (payoutForInsurance dealer) rounds

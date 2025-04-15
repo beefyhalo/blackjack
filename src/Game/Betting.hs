@@ -10,7 +10,7 @@ import Data.Map.Strict qualified as Map
 import Domain
 import GameTopology
 
-decidePlaceBet :: PlayerId -> Bet -> Game vertex -> Decision
+decidePlaceBet :: PlayerId -> Bet -> Game phase -> Decision
 decidePlaceBet pid bet = \case
   Game {state = BettingState players} ->
     case Map.lookup pid players of

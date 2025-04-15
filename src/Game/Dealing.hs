@@ -11,7 +11,7 @@ import Data.Set qualified as Set
 import Domain
 import GameTopology
 
-decideDealInitialCards :: Game vertex -> Decision
+decideDealInitialCards :: Game phase -> Decision
 decideDealInitialCards = \case
   Game {state = DealingState pids deck} ->
     maybe (Left EmptyDeck) Right do

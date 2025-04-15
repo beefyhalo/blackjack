@@ -37,7 +37,7 @@ $( singletons
 
 deriving via AllVertices ProjectionVertex instance RenderableVertices ProjectionVertex
 
-data ProjectionState (vertex :: ProjectionVertex) where
+data ProjectionState (phase :: ProjectionVertex) where
   SingleProjectionState :: Summary -> ProjectionState 'SingleProjectionVertex
 
 gameProjection :: BaseMachine ProjectionTopology Event Summary

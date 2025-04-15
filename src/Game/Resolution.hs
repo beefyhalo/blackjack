@@ -12,7 +12,7 @@ import Domain
 import GameTopology
 import Prelude hiding (round)
 
-decideResolveRound :: Game vertex -> Decision
+decideResolveRound :: Game phase -> Decision
 decideResolveRound = \case
   Game {state = ResolvingState ResolutionContext {resolvedRounds, resolvedDealer, resolvedInsurancePayouts}} ->
     let dealerOutcome = determineDealerOutcome resolvedDealer

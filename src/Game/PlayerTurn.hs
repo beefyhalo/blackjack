@@ -24,7 +24,7 @@ import Domain
 import GameTopology
 import Prelude hiding (round)
 
-decideHit :: PlayerId -> Game vertex -> Decision
+decideHit :: PlayerId -> Game phase -> Decision
 decideHit pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext}} -> hit insuranceContext
   Game {state = PlayerTurnState insuranceContext} -> hit insuranceContext
@@ -35,7 +35,7 @@ decideHit pid = \case
         Just (card, _) -> Right (HitCard pid card)
         Nothing -> Left EmptyDeck
 
-decideStand :: PlayerId -> Game vertex -> Decision
+decideStand :: PlayerId -> Game phase -> Decision
 decideStand pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext}} -> stand insuranceContext
   Game {state = PlayerTurnState insuranceContext} -> stand insuranceContext
@@ -44,7 +44,7 @@ decideStand pid = \case
     stand InsuranceContext {context = GameContext {rounds}} =
       withPlayerRound pid rounds \_ -> Right (PlayerStood pid)
 
-decideDoubleDown :: PlayerId -> Game vertex -> Decision
+decideDoubleDown :: PlayerId -> Game phase -> Decision
 decideDoubleDown pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext}} ->
     let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext
@@ -55,7 +55,7 @@ decideDoubleDown pid = \case
                 Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
-decideSurrender :: PlayerId -> Game vertex -> Decision
+decideSurrender :: PlayerId -> Game phase -> Decision
 decideSurrender pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} ->
     let InsuranceContext {context = GameContext {rounds}} = insuranceContext
@@ -65,7 +65,7 @@ decideSurrender pid = \case
             else Right (PlayerSurrendered pid)
   _ -> Left BadCommand
 
-decideSplit :: PlayerId -> Game vertex -> Decision
+decideSplit :: PlayerId -> Game phase -> Decision
 decideSplit pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} ->
     let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext

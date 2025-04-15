@@ -8,7 +8,7 @@ import Crem.Decider (EvolutionResult (EvolutionResult))
 import Domain
 import GameTopology
 
-decideRestartGame :: Game vertex -> Decision
+decideRestartGame :: Game phase -> Decision
 decideRestartGame = \case
   Game {state = ResultState {}} -> Right GameRestarted
   _ -> Left GameAlreadyStarted

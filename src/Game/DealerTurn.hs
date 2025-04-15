@@ -8,7 +8,7 @@ import Crem.Decider (EvolutionResult (EvolutionResult))
 import Domain
 import GameTopology
 
-decideDealerPlay :: Game vertex -> Decision
+decideDealerPlay :: Game phase -> Decision
 decideDealerPlay = \case
   Game {state = DealerTurnState InsuranceContext {context = GameContext {deck, dealer}}} ->
     let dealer' = dealerTurn dealer deck

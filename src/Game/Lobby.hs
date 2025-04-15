@@ -10,21 +10,21 @@ import Data.Text (Text)
 import Domain
 import GameTopology
 
-decideJoinGame :: Text -> Game vertex -> Decision
+decideJoinGame :: Text -> Game phase -> Decision
 decideJoinGame name = \case
   Game {state = LobbyState {}, nextPlayerId} ->
     let pid = PlayerId nextPlayerId
      in Right (PlayerJoined pid name)
   _ -> Left GameAlreadyStarted
 
-decideLeaveGame :: PlayerId -> Game vertex -> Decision
+decideLeaveGame :: PlayerId -> Game phase -> Decision
 decideLeaveGame pid = \case
   Game {state = LobbyState players}
     | Map.member pid players -> Right (PlayerLeft pid)
     | otherwise -> Left (PlayerNotFound pid)
   _ -> Left GameAlreadyStarted
 
-decideStartGame :: Game vertex -> Decision
+decideStartGame :: Game phase -> Decision
 decideStartGame = \case
   Game {state = LobbyState players}
     | null players -> Left TooFewPlayers

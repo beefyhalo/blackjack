@@ -20,7 +20,7 @@ import Data.Set qualified as Set
 import Data.Text (Text)
 import Domain
 import GHC.Generics (Generic)
-import GameTopology (Decision, GameVertex (AwaitingBets, InLobby))
+import GameTopology (Decision, GamePhase (AwaitingBets, InLobby))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
@@ -79,7 +79,7 @@ availableCommands =
 
 data Model v = Model
   { players :: Set.Set (Var PlayerId v),
-    phase :: GameVertex
+    phase :: GamePhase
   }
   deriving (Eq, Show)
 

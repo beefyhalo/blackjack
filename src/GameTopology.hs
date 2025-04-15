@@ -17,7 +17,7 @@ import "singletons-base" Data.Singletons.Base.TH
 
 $( singletons
      [d|
-       data GameVertex
+       data GamePhase
          = InLobby
          | AwaitingBets
          | DealingCards
@@ -31,7 +31,7 @@ $( singletons
          | GameOver
          deriving stock (Eq, Show, Enum, Bounded)
 
-       gameTopology :: Topology GameVertex
+       gameTopology :: Topology GamePhase
        gameTopology =
          Topology
            [ (InLobby, [AwaitingBets]),
@@ -48,18 +48,18 @@ $( singletons
        |]
  )
 
-deriving via AllVertices GameVertex instance RenderableVertices GameVertex
+deriving via AllVertices GamePhase instance RenderableVertices GamePhase
 
-data Game (vertex :: GameVertex) = Game
+data Game (phase :: GamePhase) = Game
   { stdGen :: StdGen,
     nextPlayerId :: Int,
-    state :: GameState vertex
+    state :: GameState phase
   }
 
 withUpdatedRng :: Game v -> Game v
 withUpdatedRng game = game {stdGen = let (_, g') = split (stdGen game) in g'}
 
-data GameState (vertex :: GameVertex) where
+data GameState (phase :: GamePhase) where
   LobbyState :: PlayerMap -> GameState 'InLobby
   BettingState :: PlayerMap -> GameState 'AwaitingBets
   DealingState :: PlayerMap -> Deck -> GameState 'DealingCards
