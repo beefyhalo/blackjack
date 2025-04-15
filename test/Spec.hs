@@ -11,14 +11,16 @@
 import Application (stateMachine)
 import Control.Exception (Exception)
 import Control.Monad (void)
-import Control.Monad.Catch (throwM)
-import Control.Monad.State.Strict (StateT (StateT), evalStateT)
+import Control.Monad.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.State.Strict (MonadIO (liftIO))
 import Crem.StateMachine (StateMachineT, run)
 import Data.Data (Typeable)
 import Data.Functor.Identity (Identity (..))
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Domain
+import GHC.Conc (TVar, atomically, readTVar, throwSTM, writeTVar)
+import GHC.Conc.Sync (newTVarIO)
 import GHC.Generics (Generic)
 import GameTopology (Decision, GamePhase (AwaitingBets, InLobby))
 import Hedgehog
@@ -38,10 +40,10 @@ prop_game_sequential = property do
         initialModel
         availableCommands
   stdGen <- initStdGen
-  let initialMachine = stateMachine stdGen
-  evalStateT
+  machineVar <- liftIO $ newTVarIO (stateMachine stdGen)
+  runReaderT
     (executeSequential initialModel actions)
-    initialMachine
+    machineVar
 
 prop_game_parallel :: Property
 prop_game_parallel =
@@ -54,10 +56,10 @@ prop_game_parallel =
           initialModel
           availableCommands
     stdGen <- initStdGen
-    let initialMachine = stateMachine stdGen
-    evalStateT
+    machineVar <- liftIO $ newTVarIO (stateMachine stdGen)
+    runReaderT
       (executeParallel initialModel actions)
-      initialMachine
+      machineVar
 
 ------------------------------------------------------------------------
 
@@ -90,7 +92,7 @@ data StateError
   | UnexpectedCommand (GameAlreadyStartedCmd Concrete)
   deriving (Show, Exception)
 
-type TestContext = StateT (StateMachineT Identity Domain.Command Decision) (PropertyT IO)
+type TestContext = ReaderT (TVar (StateMachineT Identity Domain.Command Decision)) (PropertyT IO)
 
 mkCommand ::
   (TraversableB input, Show output, Show (input Symbolic), Typeable output) =>
@@ -108,12 +110,15 @@ mkCommand ::
 mkCommand gen toDomain matchDecision onFail callbacks =
   Hedgehog.Command
     { commandGen = gen,
-      commandExecute = \cmd -> StateT \machine ->
-        case run machine (toDomain cmd) of
-          Identity (event, machine') ->
-            case matchDecision event of
-              Just output -> pure (output, machine')
-              Nothing -> throwM (onFail cmd),
+      commandExecute = \cmd -> do
+        machineVar <- ask
+        liftIO $ atomically do
+          machine <- readTVar machineVar
+          case run machine (toDomain cmd) of
+            Identity (event, machine') ->
+              case matchDecision event of
+                Just output -> output <$ writeTVar machineVar machine'
+                Nothing -> throwSTM (onFail cmd),
       commandCallbacks = callbacks
     }
 
