@@ -24,7 +24,6 @@ prop_adding_card_value_is_valid = property $ do
   let newHand = addCard card hand
   annotate $ "Before: " ++ show (score hand)
   annotate $ "After:  " ++ show (score newHand)
-  -- if hasAce newHand
   assert (score newHand < 31) -- 31 is max if Ace logic fails
 
 -- Busted hands stay busted
@@ -104,13 +103,3 @@ genTwoCardHand = Hand <$> replicateM 2 genCard
 
 genDealer :: Gen Dealer
 genDealer = fmap Dealer genHand
-
-blackjackHand :: Gen Hand
-blackjackHand = do
-  tenCard <- Gen.element [Ten, Jack, Queen, King]
-  suit1 <- Gen.enumBounded
-  suit2 <- Gen.enumBounded
-  Gen.element
-    [ Hand [Card Ace suit1, Card tenCard suit2],
-      Hand [Card tenCard suit2, Card Ace suit1]
-    ]

@@ -87,6 +87,7 @@ test-suite blackjack-test
       Game.StateTest.Lobby
       Game.StateTest.Model
       Game.StateTest.StateSpec
+      Game.Test.Lobby
       Paths_blackjack
   autogen-modules:
       Paths_blackjack
