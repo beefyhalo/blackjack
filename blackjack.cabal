@@ -81,6 +81,9 @@ test-suite blackjack-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Game.StateTest.Lobby
+      Game.StateTest.Model
+      Game.StateTest.StateSpec
       Paths_blackjack
   autogen-modules:
       Paths_blackjack
