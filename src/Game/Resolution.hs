@@ -13,20 +13,18 @@ import GameTopology
 import Prelude hiding (round)
 
 decideResolution :: Game phase -> ResolutionCommand -> Either GameError ResolutionEvent
-decideResolution = \case
-  Game {state = ResolvingState ResolutionContext {resolvedRounds, resolvedDealer, resolvedInsurancePayouts}} -> \case
-    ResolveRound ->
-      let dealerOutcome = determineDealerOutcome resolvedDealer
-          playerSummaries = Map.mapWithKey (resolvePlayer dealerOutcome resolvedInsurancePayouts) resolvedRounds
-       in Right (RoundResolved dealerOutcome playerSummaries)
-  _ -> \_ -> Left BadCommand
+decideResolution Game {state = ResolvingState ResolutionContext {resolvedRounds, resolvedDealer, resolvedInsurancePayouts}} = \case
+  ResolveRound ->
+    let dealerOutcome = determineDealerOutcome resolvedDealer
+        playerSummaries = Map.mapWithKey (resolvePlayer dealerOutcome) resolvedRounds
+     in Right (RoundResolved dealerOutcome playerSummaries)
   where
-    resolvePlayer :: DealerOutcome -> Map.Map PlayerId InsurancePayout -> PlayerId -> PlayerRound -> PlayerSummary
-    resolvePlayer dealerOutcome insurancePayouts pid round@PlayerRound {hands, player = Player {stack}} =
+    resolvePlayer :: DealerOutcome -> PlayerId -> PlayerRound -> PlayerSummary
+    resolvePlayer dealerOutcome pid round@PlayerRound {hands, player = Player {stack}} =
       let (outcomes, totalDelta, totalPush) = unzip3 $ map resolveHand (toList hands)
           net = sum totalDelta
           pushed = sum totalPush
-          insurancePayout = Map.lookup pid insurancePayouts
+          insurancePayout = Map.lookup pid resolvedInsurancePayouts
           insuranceDelta = case insurancePayout of
             Just (WonInsurancePayout amt) -> amt
             Just (LostInsuranceBet amt) -> -amt
@@ -45,6 +43,7 @@ decideResolution = \case
               delta = chipsDelta bet outcome
               pushAmount = if outcome == Push then bet else 0
            in (outcome, delta, pushAmount)
+decideResolution _ = \_ -> Left BadCommand
 
 evolveResolution :: Game ResolvingHands -> ResolutionEvent -> EvolutionResult GameTopology Game ResolvingHands output
 evolveResolution game@Game {state = ResolvingState ResolutionContext {resolvedRounds}} = \case

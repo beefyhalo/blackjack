@@ -44,15 +44,14 @@ decideStand pid = \case
       withPlayerRound pid rounds \_ -> Right (PlayerStood pid)
 
 decideDoubleDown :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
-decideDoubleDown pid = \case
-  Game {state = OpeningTurnState OpeningContext {insuranceContext}} ->
-    let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext
-     in withPlayerRound pid rounds \PlayerRound {hands, player = Player {stack = PlayerStack {chips}}} ->
-          let currentBet = bet (Z.current hands)
-           in withValidBet (currentBet * 2) chips \_ -> case drawCard deck of
-                Just (card, _) -> Right (PlayerDoubledDown pid card)
-                Nothing -> Left EmptyDeck
-  _ -> Left BadCommand
+decideDoubleDown pid Game {state = OpeningTurnState OpeningContext {insuranceContext}} =
+  let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext
+   in withPlayerRound pid rounds \PlayerRound {hands, player = Player {stack = PlayerStack {chips}}} ->
+        let currentBet = bet (Z.current hands)
+         in withValidBet (currentBet * 2) chips \_ -> case drawCard deck of
+              Just (card, _) -> Right (PlayerDoubledDown pid card)
+              Nothing -> Left EmptyDeck
+decideDoubleDown _ _ = Left BadCommand
 
 decideSurrender :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
 decideSurrender pid = \case
@@ -65,20 +64,19 @@ decideSurrender pid = \case
   _ -> Left BadCommand
 
 decideSplit :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
-decideSplit pid = \case
-  Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} ->
-    let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext
-     in withPlayerRound pid rounds \PlayerRound {hands} ->
-          let HandState {hand} = Z.current hands
-           in if Set.member pid readyPlayers
-                then Left PlayerAlreadyActed -- TODO allow configuration
-                else case extractSplitPair hand of
-                  Just (c1, c2) -> maybe (Left EmptyDeck) Right do
-                    (d1, deck') <- drawCard deck
-                    (d2, _) <- drawCard deck'
-                    Just (PlayerSplitHand pid c1 c2 d1 d2)
-                  Nothing -> Left BadCommand -- not a valid split
-  _ -> Left BadCommand
+decideSplit pid Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} =
+  let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext
+   in withPlayerRound pid rounds \PlayerRound {hands} ->
+        let HandState {hand} = Z.current hands
+         in if Set.member pid readyPlayers
+              then Left PlayerAlreadyActed -- TODO allow configuration
+              else case extractSplitPair hand of
+                Just (c1, c2) -> maybe (Left EmptyDeck) Right do
+                  (d1, deck') <- drawCard deck
+                  (d2, _) <- drawCard deck'
+                  Just (PlayerSplitHand pid c1 c2 d1 d2)
+                Nothing -> Left BadCommand -- not a valid split
+decideSplit _ _ = Left BadCommand
 
 evolveOpeningTurn :: Game OpeningTurn -> PlayerTurnEvent -> EvolutionResult GameTopology Game OpeningTurn output
 evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} event =

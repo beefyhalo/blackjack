@@ -12,15 +12,14 @@ import Domain
 import GameTopology
 
 decideDealing :: Game phase -> DealingCommand -> Either GameError DealingEvent
-decideDealing = \case
-  Game {state = DealingState pids deck} -> \case
-    DealInitialCards ->
-      maybe (Left EmptyDeck) Right do
-        (playerHands, deck') <- dealNTo 2 (Map.keys pids) deck
-        (dealerHand, _) <- dealN 2 deck'
-        Just (CardsDealt playerHands (Dealer dealerHand))
-  Game {state = BettingState {}} -> \_ -> Left PlayersStillBetting
-  _ -> \_ -> Left BadCommand
+decideDealing Game {state = DealingState pids deck} = \case
+  DealInitialCards ->
+    maybe (Left EmptyDeck) Right do
+      (playerHands, deck') <- dealNTo 2 (Map.keys pids) deck
+      (dealerHand, _) <- dealN 2 deck'
+      Just (CardsDealt playerHands (Dealer dealerHand))
+decideDealing Game {state = BettingState {}} = \_ -> Left PlayersStillBetting
+decideDealing _ = \_ -> Left BadCommand
 
 evolveDealing :: Game DealingCards -> DealingEvent -> EvolutionResult GameTopology Game DealingCards output
 evolveDealing game@Game {state = DealingState players deck} = \case

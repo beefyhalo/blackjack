@@ -11,15 +11,14 @@ import Domain
 import GameTopology
 
 decideBetting :: Game phase -> BettingCommand -> Either GameError BettingEvent
-decideBetting = \case
-  Game {state = BettingState players} -> \case
-    PlaceBet pid bet ->
-      case Map.lookup pid players of
-        Nothing -> Left (PlayerNotFound pid)
-        Just Player {stack = PlayerStack currentBet chips}
-          | currentBet > 0 -> Left (PlayerAlreadyBet pid)
-          | otherwise -> withValidBet bet chips (Right . BetPlaced pid)
-  _ -> \_ -> Left BadCommand
+decideBetting Game {state = BettingState players} = \case
+  PlaceBet pid bet ->
+    case Map.lookup pid players of
+      Nothing -> Left (PlayerNotFound pid)
+      Just Player {stack = PlayerStack currentBet chips}
+        | currentBet > 0 -> Left (PlayerAlreadyBet pid)
+        | otherwise -> withValidBet bet chips (Right . BetPlaced pid)
+decideBetting _ = \_ -> Left BadCommand
 
 evolveBetting :: Game AwaitingBets -> BettingEvent -> EvolutionResult GameTopology Game AwaitingBets output
 evolveBetting game@Game {stdGen, state = BettingState players} = \case

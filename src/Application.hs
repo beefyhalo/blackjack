@@ -1,5 +1,3 @@
-{-# LANGUAGE BlockArguments #-}
-
 module Application (stateMachine, projection, whole) where
 
 import Control.Arrow ((&&&))
