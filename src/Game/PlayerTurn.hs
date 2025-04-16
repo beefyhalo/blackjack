@@ -4,16 +4,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 
-module Game.PlayerTurn
-  ( decideHit,
-    decideStand,
-    decideDoubleDown,
-    decideSurrender,
-    decideSplit,
-    evolveOpeningTurn,
-    evolvePlayerTurn,
-  )
-where
+module Game.PlayerTurn (decidePlayerTurn, evolveOpeningTurn, evolvePlayerTurn) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.List.NonEmpty.Zipper qualified as Z
@@ -24,6 +15,14 @@ import Domain
 import GameTopology
 import Prelude hiding (round)
 
+decidePlayerTurn :: Game phase -> PlayerTurnCommand -> Decision
+decidePlayerTurn = flip \case
+  Hit pid -> decideHit pid
+  Stand pid -> decideStand pid
+  DoubleDown pid -> decideDoubleDown pid
+  Split pid -> decideSplit pid
+  Surrender pid -> decideSurrender pid
+
 decideHit :: PlayerId -> Game phase -> Decision
 decideHit pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext}} -> hit insuranceContext
@@ -32,7 +31,7 @@ decideHit pid = \case
   where
     hit InsuranceContext {context = GameContext {deck, rounds}} =
       withPlayerRound pid rounds \_ -> case drawCard deck of
-        Just (card, _) -> Right (HitCard pid card)
+        Just (card, _) -> Right (PlayerTurnEvt $ HitCard pid card)
         Nothing -> Left EmptyDeck
 
 decideStand :: PlayerId -> Game phase -> Decision
@@ -42,7 +41,7 @@ decideStand pid = \case
   _ -> Left BadCommand
   where
     stand InsuranceContext {context = GameContext {rounds}} =
-      withPlayerRound pid rounds \_ -> Right (PlayerStood pid)
+      withPlayerRound pid rounds \_ -> Right (PlayerTurnEvt $ PlayerStood pid)
 
 decideDoubleDown :: PlayerId -> Game phase -> Decision
 decideDoubleDown pid = \case
@@ -51,7 +50,7 @@ decideDoubleDown pid = \case
      in withPlayerRound pid rounds \PlayerRound {hands, player = Player {stack = PlayerStack {chips}}} ->
           let currentBet = bet (Z.current hands)
            in withValidBet (currentBet * 2) chips \_ -> case drawCard deck of
-                Just (card, _) -> Right (PlayerDoubledDown pid card)
+                Just (card, _) -> Right (PlayerTurnEvt $ PlayerDoubledDown pid card)
                 Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
@@ -62,7 +61,7 @@ decideSurrender pid = \case
      in withPlayerRound pid rounds \_ ->
           if Set.member pid readyPlayers
             then Left BadCommand
-            else Right (PlayerSurrendered pid)
+            else Right (PlayerTurnEvt $ PlayerSurrendered pid)
   _ -> Left BadCommand
 
 decideSplit :: PlayerId -> Game phase -> Decision
@@ -77,11 +76,11 @@ decideSplit pid = \case
                   Just (c1, c2) -> maybe (Left EmptyDeck) Right do
                     (d1, deck') <- drawCard deck
                     (d2, _) <- drawCard deck'
-                    Just (PlayerSplitHand pid c1 c2 d1 d2)
+                    Just (PlayerTurnEvt $ PlayerSplitHand pid c1 c2 d1 d2)
                   Nothing -> Left BadCommand -- not a valid split
   _ -> Left BadCommand
 
-evolveOpeningTurn :: Game OpeningTurn -> Event -> EvolutionResult GameTopology Game OpeningTurn output
+evolveOpeningTurn :: Game OpeningTurn -> PlayerTurnEvent -> EvolutionResult GameTopology Game OpeningTurn output
 evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} event =
   case event of
     PlayerSplitHand pid c1 c2 d1 d2 ->
@@ -94,7 +93,6 @@ evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insuranceC
     PlayerStood pid -> advanceState pid
     PlayerDoubledDown pid _ -> advanceState pid
     PlayerSurrendered pid -> advanceState pid
-    _ -> EvolutionResult game
   where
     InsuranceContext {context = GameContext deck rounds dealer} = insuranceContext
     splitPlayerHand :: Card -> Card -> Card -> Card -> PlayerRound -> PlayerRound
@@ -118,7 +116,7 @@ evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insuranceC
             EvolutionResult next@Game {state = ResolvingState {}} -> EvolutionResult next
             _ -> EvolutionResult game
 
-evolvePlayerTurn :: Game PlayerTurn -> Event -> EvolutionResult GameTopology Game PlayerTurn output
+evolvePlayerTurn :: Game PlayerTurn -> PlayerTurnEvent -> EvolutionResult GameTopology Game PlayerTurn output
 evolvePlayerTurn game@Game {state = PlayerTurnState insuranceContext} = \case
   HitCard pid card ->
     let update = modifyCurrentHand \h -> h {hand = addCard card (hand h)}

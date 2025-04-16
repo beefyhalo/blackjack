@@ -4,11 +4,9 @@
 
 module Game.Test.Lobby (tests) where
 
-import Crem.Decider (EvolutionResult (EvolutionResult))
-import Data.Map.Strict qualified as Map
 import Domain
-import Game.Lobby (decideJoinGame, evolveLobby)
-import GameTopology (Game (Game), GameState (LobbyState), state)
+import Game.Lobby (decideJoinGame)
+import GameTopology (Game (Game), GameState (LobbyState))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range

@@ -102,42 +102,97 @@ withValidBet bet chips f
   | otherwise = f bet
 
 data Command
-  = JoinGame Text
-  | LeaveGame PlayerId
-  | StartGame
-  | PlaceBet PlayerId Bet
-  | DealInitialCards
-  | Hit PlayerId
-  | Stand PlayerId
-  | DoubleDown PlayerId
-  | Split PlayerId
-  | Surrender PlayerId
-  | TakeInsurance PlayerId Bet
-  | RejectInsurance PlayerId
-  | ResolveInsurance
-  | DealerPlay
-  | ResolveRound
-  | RestartGame
+  = BettingCmd BettingCommand
+  | DealerTurnCmd DealerTurnCommand
+  | DealingCmd DealingCommand
+  | InsuranceCmd InsuranceCommand
+  | LobbyCmd LobbyCommand
+  | PlayerTurnCmd PlayerTurnCommand
+  | ResolutionCmd ResolutionCommand
+  | ResultCmd ResultCommand
   | ExitGame
   deriving (Eq, Read, Show)
 
 data Event
+  = BettingEvt BettingEvent
+  | DealerTurnEvt DealerTurnEvent
+  | DealingEvt DealingEvent
+  | InsuranceEvt InsuranceEvent
+  | LobbyEvt LobbyEvent
+  | PlayerTurnEvt PlayerTurnEvent
+  | ResolutionEvt ResolutionEvent
+  | ResultEvt ResultEvent
+  deriving (Eq, Show)
+
+data BettingCommand = PlaceBet PlayerId Bet
+  deriving (Eq, Read, Show)
+
+data BettingEvent = BetPlaced PlayerId Bet
+  deriving (Eq, Show)
+
+data DealerTurnCommand = DealerPlay
+  deriving (Eq, Read, Show)
+
+newtype DealerTurnEvent = DealerPlayed Dealer
+  deriving (Eq, Show)
+
+data DealingCommand = DealInitialCards
+  deriving (Eq, Read, Show)
+
+data DealingEvent = CardsDealt [(PlayerId, Hand)] Dealer
+  deriving (Eq, Show)
+
+data InsuranceCommand
+  = TakeInsurance PlayerId Bet
+  | RejectInsurance PlayerId
+  | ResolveInsurance
+  deriving (Eq, Read, Show)
+
+data InsuranceEvent
+  = PlayerTookInsurance PlayerId Bet
+  | PlayerDeclinedInsurance PlayerId
+  | InsuranceResolved (Map.Map PlayerId InsurancePayout)
+  deriving (Eq, Show)
+
+data LobbyCommand
+  = JoinGame Text
+  | LeaveGame PlayerId
+  | StartGame
+  deriving (Eq, Read, Show)
+
+data LobbyEvent
   = PlayerJoined PlayerId Text
   | PlayerLeft PlayerId
   | GameStarted
-  | BetPlaced PlayerId Bet
-  | CardsDealt [(PlayerId, Hand)] Dealer
-  | PlayerTookInsurance PlayerId Bet
-  | PlayerDeclinedInsurance PlayerId
-  | InsuranceResolved (Map.Map PlayerId InsurancePayout)
-  | HitCard PlayerId Card
+  deriving (Eq, Show)
+
+data PlayerTurnCommand
+  = Hit PlayerId
+  | Stand PlayerId
+  | DoubleDown PlayerId
+  | Split PlayerId
+  | Surrender PlayerId
+  deriving (Eq, Read, Show)
+
+data PlayerTurnEvent
+  = HitCard PlayerId Card
   | PlayerStood PlayerId
   | PlayerDoubledDown PlayerId Card
   | PlayerSplitHand PlayerId Card Card Card Card
   | PlayerSurrendered PlayerId
-  | DealerPlayed Dealer
-  | RoundResolved DealerOutcome (Map.Map PlayerId PlayerSummary)
-  | GameRestarted
+  deriving (Eq, Show)
+
+data ResolutionCommand = ResolveRound
+  deriving (Eq, Read, Show)
+
+data ResolutionEvent = RoundResolved DealerOutcome (Map.Map PlayerId PlayerSummary)
+  deriving (Eq, Show)
+
+data ResultCommand = RestartGame
+  deriving (Eq, Read, Show)
+
+data ResultEvent
+  = GameRestarted
   | GameExited
   deriving (Eq, Show)
 
@@ -205,7 +260,7 @@ chipsDelta Bet {current} = \case
   DealerWins _ -> -current
   Push -> 0
   where
-    payout m = floor @Float (fromIntegral current * m)
+    payout m = floor (fromIntegral current * m :: Float)
 
 data InsurancePayout
   = WonInsurancePayout Chips

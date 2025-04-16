@@ -3,14 +3,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Game.Insurance
-  ( decideTakeInsurance,
-    decideRejectInsurance,
-    decideResolveInsurance,
-    evolveOfferingInsurance,
-    evolveResolvingInsurance,
-  )
-where
+module Game.Insurance (decideInsurance, evolveOfferingInsurance, evolveResolvingInsurance) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
@@ -20,32 +13,25 @@ import Domain
 import GameTopology
 import Prelude hiding (round)
 
-decideTakeInsurance :: PlayerId -> Bet -> Game phase -> Decision
-decideTakeInsurance pid sidebet = \case
-  Game {state = OfferingInsuranceState GameContext {rounds}} ->
-    withPlayerRound pid rounds \PlayerRound {player = Player {stack}, insurance} ->
-      if isJust insurance
-        then Left PlayerAlreadyInsured
-        else withValidBet sidebet (chips stack) (Right . PlayerTookInsurance pid)
-  _ -> Left BadCommand
+decideInsurance :: Game phase -> InsuranceCommand -> Decision
+decideInsurance = \case
+  Game {state = OfferingInsuranceState GameContext {rounds, dealer}} -> \case
+    TakeInsurance pid sidebet ->
+      withPlayerRound pid rounds \PlayerRound {player = Player {stack}, insurance} ->
+        if isJust insurance
+          then Left PlayerAlreadyInsured
+          else withValidBet sidebet (chips stack) (Right . InsuranceEvt . PlayerTookInsurance pid)
+    RejectInsurance pid ->
+      withPlayerRound pid rounds \PlayerRound {insurance} ->
+        if isJust insurance
+          then Left PlayerAlreadyInsured
+          else Right (InsuranceEvt $ PlayerDeclinedInsurance pid)
+    ResolveInsurance ->
+      let insurancePayouts = fmap (payoutForInsurance dealer) rounds
+       in Right (InsuranceEvt $ InsuranceResolved insurancePayouts)
+  _ -> \_ -> Left BadCommand
 
-decideRejectInsurance :: PlayerId -> Game phase -> Decision
-decideRejectInsurance pid = \case
-  Game {state = OfferingInsuranceState GameContext {rounds}} ->
-    withPlayerRound pid rounds \PlayerRound {insurance} ->
-      if isJust insurance
-        then Left PlayerAlreadyInsured
-        else Right (PlayerDeclinedInsurance pid)
-  _ -> Left BadCommand
-
-decideResolveInsurance :: Game phase -> Decision
-decideResolveInsurance = \case
-  Game {state = ResolvingInsuranceState GameContext {rounds, dealer}} ->
-    let insurancePayouts = fmap (payoutForInsurance dealer) rounds
-     in Right (InsuranceResolved insurancePayouts)
-  _ -> Left BadCommand
-
-evolveOfferingInsurance :: Game OfferingInsurance -> Event -> EvolutionResult GameTopology Game OfferingInsurance output
+evolveOfferingInsurance :: Game OfferingInsurance -> InsuranceEvent -> EvolutionResult GameTopology Game OfferingInsurance output
 evolveOfferingInsurance game@Game {state = OfferingInsuranceState context@GameContext {rounds}} = \case
   PlayerTookInsurance pid bet ->
     let rounds' = Map.adjust (\r -> r {insurance = Just (TookInsurance bet)}) pid rounds
@@ -59,7 +45,7 @@ evolveOfferingInsurance game@Game {state = OfferingInsuranceState context@GameCo
       | all (isJust . insurance) rounds' = EvolutionResult game {state = ResolvingInsuranceState context {rounds = rounds'}}
       | otherwise = EvolutionResult game {state = OfferingInsuranceState context {rounds = rounds'}}
 
-evolveResolvingInsurance :: Game ResolvingInsurance -> Event -> EvolutionResult GameTopology Game ResolvingInsurance output
+evolveResolvingInsurance :: Game ResolvingInsurance -> InsuranceEvent -> EvolutionResult GameTopology Game ResolvingInsurance output
 evolveResolvingInsurance game@Game {state = ResolvingInsuranceState context@GameContext {rounds, dealer}} = \case
   InsuranceResolved results ->
     let rounds' = Map.mapWithKey settleInsurance results

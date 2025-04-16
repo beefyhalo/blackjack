@@ -2,7 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Game.Resolution (decideResolveRound, evolveResolution) where
+module Game.Resolution (decideResolution, evolveResolution) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Foldable (toList)
@@ -12,13 +12,14 @@ import Domain
 import GameTopology
 import Prelude hiding (round)
 
-decideResolveRound :: Game phase -> Decision
-decideResolveRound = \case
-  Game {state = ResolvingState ResolutionContext {resolvedRounds, resolvedDealer, resolvedInsurancePayouts}} ->
-    let dealerOutcome = determineDealerOutcome resolvedDealer
-        playerSummaries = Map.mapWithKey (resolvePlayer dealerOutcome resolvedInsurancePayouts) resolvedRounds
-     in Right (RoundResolved dealerOutcome playerSummaries)
-  _ -> Left BadCommand
+decideResolution :: Game phase -> ResolutionCommand -> Decision
+decideResolution = \case
+  Game {state = ResolvingState ResolutionContext {resolvedRounds, resolvedDealer, resolvedInsurancePayouts}} -> \case
+    ResolveRound ->
+      let dealerOutcome = determineDealerOutcome resolvedDealer
+          playerSummaries = Map.mapWithKey (resolvePlayer dealerOutcome resolvedInsurancePayouts) resolvedRounds
+       in Right (ResolutionEvt $ RoundResolved dealerOutcome playerSummaries)
+  _ -> \_ -> Left BadCommand
   where
     resolvePlayer :: DealerOutcome -> Map.Map PlayerId InsurancePayout -> PlayerId -> PlayerRound -> PlayerSummary
     resolvePlayer dealerOutcome insurancePayouts pid round@PlayerRound {hands, player = Player {stack}} =
@@ -45,11 +46,10 @@ decideResolveRound = \case
               pushAmount = if outcome == Push then bet else 0
            in (outcome, delta, pushAmount)
 
-evolveResolution :: Game ResolvingHands -> Event -> EvolutionResult GameTopology Game ResolvingHands output
+evolveResolution :: Game ResolvingHands -> ResolutionEvent -> EvolutionResult GameTopology Game ResolvingHands output
 evolveResolution game@Game {state = ResolvingState ResolutionContext {resolvedRounds}} = \case
   RoundResolved _ outcomes ->
     let settle PlayerRound {player} (PlayerSummary {nextRoundBet, finalChips}) =
           player {stack = PlayerStack nextRoundBet finalChips}
         players = Map.mapWithKey (settle . (resolvedRounds Map.!)) outcomes
      in EvolutionResult game {state = ResultState players}
-  _ -> EvolutionResult game

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
@@ -5,7 +6,7 @@ module Game (baseMachine, decider) where
 
 import Crem.BaseMachine (BaseMachine, InitialState (..))
 import Crem.Decider (Decider (..), EvolutionResult (EvolutionResult), deciderMachine)
-import Domain (Command (..), Event (GameExited))
+import Domain
 import Game.Betting
 import Game.DealerTurn
 import Game.Dealing
@@ -25,37 +26,27 @@ decider initialState =
   Decider
     { deciderInitialState = initialState,
       decide = \case
-        JoinGame name -> decideJoinGame name
-        LeaveGame pid -> decideLeaveGame pid
-        StartGame -> decideStartGame
-        PlaceBet pid amt -> decidePlaceBet pid amt
-        DealInitialCards -> decideDealInitialCards
-        TakeInsurance pid chips -> decideTakeInsurance pid chips
-        RejectInsurance pid -> decideRejectInsurance pid
-        ResolveInsurance -> decideResolveInsurance
-        Hit pid -> decideHit pid
-        Stand pid -> decideStand pid
-        DoubleDown pid -> decideDoubleDown pid
-        Split pid -> decideSplit pid
-        Surrender pid -> decideSurrender pid
-        DealerPlay -> decideDealerPlay
-        ResolveRound -> decideResolveRound
-        RestartGame -> decideRestartGame
-        ExitGame -> const (Right GameExited),
+        LobbyCmd cmd -> flip decideLobby cmd
+        BettingCmd cmd -> flip decideBetting cmd
+        DealingCmd cmd -> flip decideDealing cmd
+        InsuranceCmd cmd -> flip decideInsurance cmd
+        PlayerTurnCmd cmd -> flip decidePlayerTurn cmd
+        DealerTurnCmd cmd -> flip decideDealerPlay cmd
+        ResolutionCmd cmd -> flip decideResolution cmd
+        ResultCmd cmd -> flip decideResult cmd
+        ExitGame -> \_ -> Right (ResultEvt GameExited),
       evolve = \game -> \case
         Left _ -> EvolutionResult game
-        Right event ->
-          let step = case state game of
-                LobbyState {} -> evolveLobby
-                BettingState {} -> evolveBetting
-                DealingState {} -> evolveDealing
-                OfferingInsuranceState {} -> evolveOfferingInsurance
-                ResolvingInsuranceState {} -> evolveResolvingInsurance
-                OpeningTurnState {} -> evolveOpeningTurn
-                PlayerTurnState {} -> evolvePlayerTurn
-                DealerTurnState {} -> evolveDealerTurn
-                ResolvingState {} -> evolveResolution
-                ResultState {} -> evolveResult
-                ExitedState {} -> const . EvolutionResult
-           in step game event
+        Right event -> case (state game, event) of
+          (LobbyState {}, LobbyEvt evt) -> evolveLobby game evt
+          (BettingState {}, BettingEvt evt) -> evolveBetting game evt
+          (DealingState {}, DealingEvt evt) -> evolveDealing game evt
+          (OfferingInsuranceState {}, InsuranceEvt evt) -> evolveOfferingInsurance game evt
+          (ResolvingInsuranceState {}, InsuranceEvt evt) -> evolveResolvingInsurance game evt
+          (OpeningTurnState {}, PlayerTurnEvt evt) -> evolveOpeningTurn game evt
+          (PlayerTurnState {}, PlayerTurnEvt evt) -> evolvePlayerTurn game evt
+          (DealerTurnState {}, DealerTurnEvt evt) -> evolveDealerTurn game evt
+          (ResolvingState {}, ResolutionEvt evt) -> evolveResolution game evt
+          (ResultState {}, ResultEvt evt) -> evolveResult game evt
+          _ -> EvolutionResult game
     }

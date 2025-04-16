@@ -3,24 +3,25 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Game.Betting (decidePlaceBet, evolveBetting) where
+module Game.Betting (decideBetting, evolveBetting) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
 import Domain
 import GameTopology
 
-decidePlaceBet :: PlayerId -> Bet -> Game phase -> Decision
-decidePlaceBet pid bet = \case
-  Game {state = BettingState players} ->
-    case Map.lookup pid players of
-      Nothing -> Left (PlayerNotFound pid)
-      Just Player {stack = PlayerStack currentBet chips}
-        | currentBet > 0 -> Left (PlayerAlreadyBet pid)
-        | otherwise -> withValidBet bet chips (Right . BetPlaced pid)
-  _ -> Left BadCommand
+decideBetting :: Game phase -> BettingCommand -> Decision
+decideBetting = \case
+  Game {state = BettingState players} -> \case
+    PlaceBet pid bet ->
+      case Map.lookup pid players of
+        Nothing -> Left (PlayerNotFound pid)
+        Just Player {stack = PlayerStack currentBet chips}
+          | currentBet > 0 -> Left (PlayerAlreadyBet pid)
+          | otherwise -> withValidBet bet chips (Right . BettingEvt . BetPlaced pid)
+  _ -> \_ -> Left BadCommand
 
-evolveBetting :: Game AwaitingBets -> Event -> EvolutionResult GameTopology Game AwaitingBets output
+evolveBetting :: Game AwaitingBets -> BettingEvent -> EvolutionResult GameTopology Game AwaitingBets output
 evolveBetting game@Game {stdGen, state = BettingState players} = \case
   BetPlaced pid bet ->
     let updateBet player = player {stack = (stack player) {currentBet = bet}}
@@ -29,4 +30,3 @@ evolveBetting game@Game {stdGen, state = BettingState players} = \case
      in if allBetsIn
           then EvolutionResult game {state = DealingState players' (mkDeck stdGen)}
           else EvolutionResult game {state = BettingState players'}
-  _ -> EvolutionResult game

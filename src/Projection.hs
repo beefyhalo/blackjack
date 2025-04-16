@@ -13,7 +13,7 @@ import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
 import Data.Monoid (Sum)
 import Data.Override (Override (Override))
-import Domain (Chips, Event (RoundResolved))
+import Domain (Chips, Event (ResolutionEvt), ResolutionEvent (RoundResolved))
 import GHC.Generics (Generic)
 import "singletons-base" Data.Singletons.Base.TH hiding (Sum)
 
@@ -45,7 +45,7 @@ gameProjection =
   BaseMachineT
     { initialState = InitialState (SingleProjectionState mempty),
       action = \(SingleProjectionState summary) -> \case
-        RoundResolved _ _outcomes ->
+        ResolutionEvt (RoundResolved _ _outcomes) ->
           let winnings = 0 -- foldMap (\case (Win chips, _) -> Sum chips; _ -> 0) outcomes
               losses = 0 -- foldMap (\case (Loss chips, _) -> Sum chips; _ -> 0) outcomes
               summary' = summary <> Summary winnings losses 1

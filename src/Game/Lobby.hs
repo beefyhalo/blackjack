@@ -2,36 +2,28 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Game.Lobby (decideJoinGame, decideLeaveGame, decideStartGame, evolveLobby) where
+module Game.Lobby (decideLobby, evolveLobby) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
-import Data.Text (Text)
 import Domain
 import GameTopology
 
-decideJoinGame :: Text -> Game phase -> Decision
-decideJoinGame name = \case
-  Game {state = LobbyState {}, nextPlayerId} ->
-    let pid = PlayerId nextPlayerId
-     in Right (PlayerJoined pid name)
-  _ -> Left GameAlreadyStarted
+decideLobby :: Game phase -> LobbyCommand -> Decision
+decideLobby = \case
+  Game {state = LobbyState players, nextPlayerId} -> \case
+    JoinGame name ->
+      let pid = PlayerId nextPlayerId
+       in Right (LobbyEvt $ PlayerJoined pid name)
+    LeaveGame pid
+      | Map.notMember pid players -> Left (PlayerNotFound pid)
+      | otherwise -> Right (LobbyEvt $ PlayerLeft pid)
+    StartGame
+      | null players -> Left TooFewPlayers
+      | otherwise -> Right (LobbyEvt GameStarted)
+  _ -> const (Left GameAlreadyStarted)
 
-decideLeaveGame :: PlayerId -> Game phase -> Decision
-decideLeaveGame pid = \case
-  Game {state = LobbyState players}
-    | Map.member pid players -> Right (PlayerLeft pid)
-    | otherwise -> Left (PlayerNotFound pid)
-  _ -> Left GameAlreadyStarted
-
-decideStartGame :: Game phase -> Decision
-decideStartGame = \case
-  Game {state = LobbyState players}
-    | null players -> Left TooFewPlayers
-    | otherwise -> Right GameStarted
-  _ -> Left GameAlreadyStarted
-
-evolveLobby :: Game InLobby -> Event -> EvolutionResult GameTopology Game InLobby output
+evolveLobby :: Game InLobby -> LobbyEvent -> EvolutionResult GameTopology Game InLobby output
 evolveLobby game@Game {state = LobbyState players} = \case
   PlayerJoined pid name ->
     let players' = Map.insert pid (newPlayer pid name) players
@@ -40,4 +32,3 @@ evolveLobby game@Game {state = LobbyState players} = \case
     let players' = Map.delete pid players
      in EvolutionResult game {state = LobbyState players'}
   GameStarted -> EvolutionResult game {state = BettingState players}
-  _ -> EvolutionResult game
