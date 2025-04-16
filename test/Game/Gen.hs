@@ -9,7 +9,7 @@ import GameTopology
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
-import System.Random (initStdGen, mkStdGen)
+import System.Random (mkStdGen)
 
 genRank :: Gen Rank
 genRank = Gen.enumBounded
@@ -33,13 +33,22 @@ genPlayerName :: Gen Text
 genPlayerName = Gen.text (Range.linear 3 8) Gen.alphaNum
 
 genPlayerId :: Gen PlayerId
-genPlayerId = PlayerId <$> Gen.int (Range.linear 0 10)
+genPlayerId = PlayerId <$> Gen.int (Range.linear 0 100)
+
+genPlayerStack :: Gen PlayerStack
+genPlayerStack = liftA2 PlayerStack genBet genChips
+
+genBet :: Gen Bet
+genBet = fmap Bet genChips
+
+genChips :: Gen Chips
+genChips = Gen.int (Range.linear 0 10000)
 
 genPlayer :: Gen Player
-genPlayer = undefined
+genPlayer = Player <$> genPlayerId <*> genPlayerStack <*> genPlayerName
 
 genPlayerMap :: Gen PlayerMap
-genPlayerMap = Gen.map (Range.linear 0 0) (liftA2 (,) genPlayerId genPlayer)
+genPlayerMap = Gen.map (Range.linear 0 100) (liftA2 (,) genPlayerId genPlayer)
 
 genLobbyStateGame :: Gen (Game InLobby)
 genLobbyStateGame = do

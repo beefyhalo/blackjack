@@ -10,7 +10,7 @@ import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
 
 tests :: IO Bool
-tests = checkSequential $$discover
+tests = checkParallel $$discover
 
 -- 2 card hands never exceed value 21
 prop_hand_value_never_exceeds_21 :: Property
