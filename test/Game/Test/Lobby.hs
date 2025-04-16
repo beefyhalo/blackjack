@@ -32,9 +32,7 @@ prop_decide_rejects_JoinGame_in_non_lobby_state :: Property
 prop_decide_rejects_JoinGame_in_non_lobby_state = property do
   SomeGame game <- forAllNonLobbyStateGame
   name <- forAll genPlayerName
-  assert case decideLobby game (JoinGame name) of
-    Left GameAlreadyStarted -> True
-    _ -> False
+  decideLobby game (JoinGame name) === Left GameAlreadyStarted
 
 -- evolve updates the state with a joined player
 prop_evolve_PlayerJoined_adds_player :: Property
@@ -61,9 +59,7 @@ prop_decide_rejects_LeaveGame_in_non_lobby_state :: Property
 prop_decide_rejects_LeaveGame_in_non_lobby_state = property do
   SomeGame game <- forAllNonLobbyStateGame
   pid <- forAll genPlayerId
-  assert case decideLobby game (LeaveGame pid) of
-    Left GameAlreadyStarted -> True
-    _ -> False
+  decideLobby game (LeaveGame pid) === Left GameAlreadyStarted
 
 -- evolve removes a player with player left
 prop_evolve_PlayerLeft_removes_player :: Property
@@ -85,9 +81,7 @@ prop_decide_start_emits_GameStarted = property do
 prop_decide_rejects_StartGame_in_non_lobby_state :: Property
 prop_decide_rejects_StartGame_in_non_lobby_state = property do
   SomeGame game <- forAllNonLobbyStateGame
-  assert case decideLobby game StartGame of
-    Left GameAlreadyStarted -> True
-    _ -> False
+  decideLobby game StartGame === Left GameAlreadyStarted
 
 -- decide rejects starting with an empty lobby
 prop_decide_start_rejects_empty_lobby :: Property

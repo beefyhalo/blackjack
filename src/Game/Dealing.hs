@@ -25,13 +25,12 @@ evolveDealing :: Game DealingCards -> DealingEvent -> EvolutionResult GameTopolo
 evolveDealing game@Game {state = DealingState players deck} = \case
   CardsDealt playerHands dealer@(Dealer dealerHand)
     | isAce (visibleCard dealer) ->
-        let rounds = fmap (initPlayerRound emptyHand) players
-         in EvolutionResult game {state = OfferingInsuranceState (GameContext deck' rounds dealer)}
+        EvolutionResult game {state = OfferingInsuranceState (GameContext deck' rounds dealer)}
     | otherwise ->
-        let rounds = Map.fromList [(pid, initPlayerRound hand (players Map.! pid)) | (pid, hand) <- playerHands]
-            openingContext = OpeningContext (InsuranceContext (GameContext deck' rounds dealer) Map.empty) Set.empty
+        let openingContext = OpeningContext (InsuranceContext (GameContext deck' rounds dealer) Map.empty) Set.empty
          in EvolutionResult game {state = OpeningTurnState openingContext}
     where
+      rounds = Map.fromList [(pid, initPlayerRound hand (players Map.! pid)) | (pid, hand) <- playerHands]
       deck' =
         let cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealerHand
          in deck {drawn = drawn deck + cardsDrawn}

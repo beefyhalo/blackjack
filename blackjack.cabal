@@ -84,6 +84,7 @@ test-suite blackjack-test
       Game.DomainSpec
       Game.Gen
       Game.Test.Betting
+      Game.Test.Dealing
       Game.Test.Lobby
       Paths_blackjack
   autogen-modules:

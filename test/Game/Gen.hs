@@ -9,7 +9,7 @@ import GameTopology
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
-import System.Random (mkStdGen)
+import System.Random (StdGen, mkStdGen)
 
 genRank :: Gen Rank
 genRank = Gen.enumBounded
@@ -28,6 +28,13 @@ genTwoCardHand = Hand <$> replicateM 2 genCard
 
 genDealer :: Gen Dealer
 genDealer = fmap Dealer genHand
+
+genDeck :: Gen Deck
+genDeck =
+  Deck
+    <$> genStdGen
+    <*> Gen.int (Range.linear 0 200)
+    <*> Gen.int (Range.linear 4 8)
 
 genPlayerName :: Gen Text
 genPlayerName = Gen.text (Range.linear 3 8) Gen.alphaNum
@@ -53,9 +60,12 @@ genPlayer = Player <$> genPlayerId <*> genPlayerStack <*> genPlayerName
 genPlayerMap :: Gen PlayerMap
 genPlayerMap = Gen.map (Range.linear 0 100) (liftA2 (,) genPlayerId genPlayer)
 
+genStdGen :: Gen StdGen
+genStdGen = fmap mkStdGen Gen.enumBounded
+
 genLobbyStateGame :: Gen (Game InLobby)
 genLobbyStateGame = do
-  stdGen <- fmap mkStdGen Gen.enumBounded
+  stdGen <- genStdGen
   nextPlayerId <- Gen.int (Range.linear 0 1000)
   playerMap <- genPlayerMap
   let game = Game stdGen nextPlayerId (LobbyState playerMap)
@@ -63,10 +73,19 @@ genLobbyStateGame = do
 
 genBettingStateGame :: Gen (Game AwaitingBets)
 genBettingStateGame = do
-  stdGen <- fmap mkStdGen Gen.enumBounded
+  stdGen <- genStdGen
   nextPlayerId <- Gen.int (Range.linear 0 1000)
   playerMap <- Gen.filter (not . null) genPlayerMap
   let game = Game stdGen nextPlayerId (BettingState playerMap)
+  pure game
+
+genDealingStateGame :: Gen (Game DealingCards)
+genDealingStateGame = do
+  stdGen <- genStdGen
+  nextPlayerId <- Gen.int (Range.linear 0 1000)
+  playerMap <- Gen.filter (not . null) genPlayerMap
+  deck <- genDeck
+  let game = Game stdGen nextPlayerId (DealingState playerMap deck)
   pure game
 
 data SomeGame = forall p. SomeGame (Game p)
@@ -75,5 +94,6 @@ genGame :: Gen SomeGame
 genGame =
   Gen.choice
     [ fmap SomeGame genLobbyStateGame,
-      fmap SomeGame genBettingStateGame
+      fmap SomeGame genBettingStateGame,
+      fmap SomeGame genDealingStateGame
     ]

@@ -3,6 +3,7 @@
 
 module Domain (module Domain) where
 
+import Control.Monad (join)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Map.Strict qualified as Map
@@ -293,12 +294,13 @@ data GameError
 
 data Deck = Deck
   { gen :: StdGen,
-    drawn :: Int
+    drawn :: Int,
+    shoeSize :: Int
   }
   deriving (Eq, Show)
 
 mkDeck :: StdGen -> Deck
-mkDeck g = Deck g 0
+mkDeck g = Deck g 0 6
 
 -- Efficient O(1) lookup of the n-th element of a virtual Fisher-Yates shuffle
 fisherYatesIndex :: [a] -> Int -> StdGen -> Maybe a
@@ -314,9 +316,11 @@ fisherYatesIndex xs n g
            in go v' (i + 1) g'
 
 drawCard :: Deck -> Maybe (Card, Deck)
-drawCard deck@Deck {gen, drawn} = do
-  card <- fisherYatesIndex allCards drawn gen
+drawCard deck@Deck {gen, drawn, shoeSize} = do
+  card <- fisherYatesIndex shoe drawn gen
   pure (card, deck {drawn = drawn + 1})
+  where
+    shoe = join $ replicate shoeSize allCards
 
 dealN :: Int -> Deck -> Maybe (Hand, Deck)
 dealN n deck = go n deck []
