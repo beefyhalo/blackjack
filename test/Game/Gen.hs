@@ -36,13 +36,16 @@ genPlayerId :: Gen PlayerId
 genPlayerId = PlayerId <$> Gen.int (Range.linear 0 100)
 
 genPlayerStack :: Gen PlayerStack
-genPlayerStack = liftA2 PlayerStack genBet genChips
+genPlayerStack = do
+  chips <- genChips
+  bet <- genBet chips
+  pure (PlayerStack bet chips)
 
-genBet :: Gen Bet
-genBet = fmap Bet genChips
+genBet :: Chips -> Gen Bet
+genBet = fmap Bet . Gen.int . Range.linear 1
 
 genChips :: Gen Chips
-genChips = Gen.int (Range.linear 0 10000)
+genChips = Gen.int (Range.linear 1 10000)
 
 genPlayer :: Gen Player
 genPlayer = Player <$> genPlayerId <*> genPlayerStack <*> genPlayerName
@@ -57,3 +60,20 @@ genLobbyStateGame = do
   playerMap <- genPlayerMap
   let game = Game stdGen nextPlayerId (LobbyState playerMap)
   pure game
+
+genBettingStateGame :: Gen (Game AwaitingBets)
+genBettingStateGame = do
+  stdGen <- fmap mkStdGen Gen.enumBounded
+  nextPlayerId <- Gen.int (Range.linear 0 1000)
+  playerMap <- Gen.filter (not . null) genPlayerMap
+  let game = Game stdGen nextPlayerId (BettingState playerMap)
+  pure game
+
+data SomeGame = forall p. SomeGame (Game p)
+
+genGame :: Gen SomeGame
+genGame =
+  Gen.choice
+    [ fmap SomeGame genLobbyStateGame,
+      fmap SomeGame genBettingStateGame
+    ]
