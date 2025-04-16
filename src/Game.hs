@@ -26,14 +26,14 @@ decider initialState =
   Decider
     { deciderInitialState = initialState,
       decide = \case
-        LobbyCmd cmd -> flip decideLobby cmd
-        BettingCmd cmd -> flip decideBetting cmd
-        DealingCmd cmd -> flip decideDealing cmd
-        InsuranceCmd cmd -> flip decideInsurance cmd
-        PlayerTurnCmd cmd -> flip decidePlayerTurn cmd
-        DealerTurnCmd cmd -> flip decideDealerPlay cmd
-        ResolutionCmd cmd -> flip decideResolution cmd
-        ResultCmd cmd -> flip decideResult cmd
+        LobbyCmd cmd -> fmap LobbyEvt . (`decideLobby` cmd)
+        BettingCmd cmd -> fmap BettingEvt . (`decideBetting` cmd)
+        DealingCmd cmd -> fmap DealingEvt . (`decideDealing` cmd)
+        InsuranceCmd cmd -> fmap InsuranceEvt . (`decideInsurance` cmd)
+        PlayerTurnCmd cmd -> fmap PlayerTurnEvt . (`decidePlayerTurn` cmd)
+        DealerTurnCmd cmd -> fmap DealerTurnEvt . (`decideDealerPlay` cmd)
+        ResolutionCmd cmd -> fmap ResolutionEvt . (`decideResolution` cmd)
+        ResultCmd cmd -> fmap ResultEvt . (`decideResult` cmd)
         ExitGame -> \_ -> Right (ResultEvt GameExited),
       evolve = \game -> \case
         Left _ -> EvolutionResult game

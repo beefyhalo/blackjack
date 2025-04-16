@@ -15,7 +15,7 @@ import Domain
 import GameTopology
 import Prelude hiding (round)
 
-decidePlayerTurn :: Game phase -> PlayerTurnCommand -> Decision
+decidePlayerTurn :: Game phase -> PlayerTurnCommand -> Either GameError PlayerTurnEvent
 decidePlayerTurn = flip \case
   Hit pid -> decideHit pid
   Stand pid -> decideStand pid
@@ -23,7 +23,7 @@ decidePlayerTurn = flip \case
   Split pid -> decideSplit pid
   Surrender pid -> decideSurrender pid
 
-decideHit :: PlayerId -> Game phase -> Decision
+decideHit :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
 decideHit pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext}} -> hit insuranceContext
   Game {state = PlayerTurnState insuranceContext} -> hit insuranceContext
@@ -31,40 +31,40 @@ decideHit pid = \case
   where
     hit InsuranceContext {context = GameContext {deck, rounds}} =
       withPlayerRound pid rounds \_ -> case drawCard deck of
-        Just (card, _) -> Right (PlayerTurnEvt $ HitCard pid card)
+        Just (card, _) -> Right (HitCard pid card)
         Nothing -> Left EmptyDeck
 
-decideStand :: PlayerId -> Game phase -> Decision
+decideStand :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
 decideStand pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext}} -> stand insuranceContext
   Game {state = PlayerTurnState insuranceContext} -> stand insuranceContext
   _ -> Left BadCommand
   where
     stand InsuranceContext {context = GameContext {rounds}} =
-      withPlayerRound pid rounds \_ -> Right (PlayerTurnEvt $ PlayerStood pid)
+      withPlayerRound pid rounds \_ -> Right (PlayerStood pid)
 
-decideDoubleDown :: PlayerId -> Game phase -> Decision
+decideDoubleDown :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
 decideDoubleDown pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext}} ->
     let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext
      in withPlayerRound pid rounds \PlayerRound {hands, player = Player {stack = PlayerStack {chips}}} ->
           let currentBet = bet (Z.current hands)
            in withValidBet (currentBet * 2) chips \_ -> case drawCard deck of
-                Just (card, _) -> Right (PlayerTurnEvt $ PlayerDoubledDown pid card)
+                Just (card, _) -> Right (PlayerDoubledDown pid card)
                 Nothing -> Left EmptyDeck
   _ -> Left BadCommand
 
-decideSurrender :: PlayerId -> Game phase -> Decision
+decideSurrender :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
 decideSurrender pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} ->
     let InsuranceContext {context = GameContext {rounds}} = insuranceContext
      in withPlayerRound pid rounds \_ ->
           if Set.member pid readyPlayers
             then Left BadCommand
-            else Right (PlayerTurnEvt $ PlayerSurrendered pid)
+            else Right (PlayerSurrendered pid)
   _ -> Left BadCommand
 
-decideSplit :: PlayerId -> Game phase -> Decision
+decideSplit :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
 decideSplit pid = \case
   Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} ->
     let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext
@@ -76,7 +76,7 @@ decideSplit pid = \case
                   Just (c1, c2) -> maybe (Left EmptyDeck) Right do
                     (d1, deck') <- drawCard deck
                     (d2, _) <- drawCard deck'
-                    Just (PlayerTurnEvt $ PlayerSplitHand pid c1 c2 d1 d2)
+                    Just (PlayerSplitHand pid c1 c2 d1 d2)
                   Nothing -> Left BadCommand -- not a valid split
   _ -> Left BadCommand
 

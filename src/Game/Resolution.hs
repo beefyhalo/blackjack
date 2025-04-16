@@ -12,13 +12,13 @@ import Domain
 import GameTopology
 import Prelude hiding (round)
 
-decideResolution :: Game phase -> ResolutionCommand -> Decision
+decideResolution :: Game phase -> ResolutionCommand -> Either GameError ResolutionEvent
 decideResolution = \case
   Game {state = ResolvingState ResolutionContext {resolvedRounds, resolvedDealer, resolvedInsurancePayouts}} -> \case
     ResolveRound ->
       let dealerOutcome = determineDealerOutcome resolvedDealer
           playerSummaries = Map.mapWithKey (resolvePlayer dealerOutcome resolvedInsurancePayouts) resolvedRounds
-       in Right (ResolutionEvt $ RoundResolved dealerOutcome playerSummaries)
+       in Right (RoundResolved dealerOutcome playerSummaries)
   _ -> \_ -> Left BadCommand
   where
     resolvePlayer :: DealerOutcome -> Map.Map PlayerId InsurancePayout -> PlayerId -> PlayerRound -> PlayerSummary

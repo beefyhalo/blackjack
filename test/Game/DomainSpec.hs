@@ -1,9 +1,10 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Game.DomainSpec (tests) where
 
-import Control.Monad (replicateM)
 import Domain
+import Game.Gen
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
@@ -11,14 +12,15 @@ import Hedgehog.Range qualified as Range
 tests :: IO Bool
 tests = checkSequential $$discover
 
+-- 2 card hands never exceed value 21
 prop_hand_value_never_exceeds_21 :: Property
-prop_hand_value_never_exceeds_21 = property $ do
+prop_hand_value_never_exceeds_21 = property do
   hand <- forAll genTwoCardHand
   assert (score hand <= 21)
 
 -- Adding a card keeps value valid (≤ 21 or busts)
 prop_adding_card_value_is_valid :: Property
-prop_adding_card_value_is_valid = property $ do
+prop_adding_card_value_is_valid = property do
   hand <- forAll genTwoCardHand
   card <- forAll genCard
   let newHand = addCard card hand
@@ -28,7 +30,7 @@ prop_adding_card_value_is_valid = property $ do
 
 -- Busted hands stay busted
 prop_adding_card_preserves_bust_behavior :: Property
-prop_adding_card_preserves_bust_behavior = property $ do
+prop_adding_card_preserves_bust_behavior = property do
   hand <- forAll genHand
   card <- forAll genCard
   let newHand = addCard card hand
@@ -38,7 +40,7 @@ prop_adding_card_preserves_bust_behavior = property $ do
 
 -- Ace can reduce value
 prop_ace_can_reduce_value :: Property
-prop_ace_can_reduce_value = property $ do
+prop_ace_can_reduce_value = property do
   hand <- forAll $ Gen.filter (not . hasAce) genHand
   suit <- forAll genSuit
   let ace = Card Ace suit
@@ -47,13 +49,13 @@ prop_ace_can_reduce_value = property $ do
 
 -- Blackjack only possible with 2 cards
 prop_blackjack_requires_two_cards :: Property
-prop_blackjack_requires_two_cards = property $ do
+prop_blackjack_requires_two_cards = property do
   hand <- forAll genHand
   assert (not (isBlackjack hand) || handSize hand == 2)
 
 -- Blackjack hand always has a 10-value and an Ace
 prop_blackjack_value_is_21 :: Property
-prop_blackjack_value_is_21 = property $ do
+prop_blackjack_value_is_21 = property do
   hand <- forAll genTwoCardHand
   if isBlackjack hand
     then assert (score hand == 21)
@@ -61,45 +63,24 @@ prop_blackjack_value_is_21 = property $ do
 
 -- You can only split when cards are the same rank
 prop_can_split_only_identical_ranks :: Property
-prop_can_split_only_identical_ranks = property $ do
+prop_can_split_only_identical_ranks = property do
   hand <- forAll genTwoCardHand
   assert (canSplit hand == (handSize hand == 2 && sameRank hand))
   where
-    sameRank (Hand [Card r1 _, Card r2 _]) = r1 == r2
+    sameRank (Hand (Card r1 _ : Card r2 _ : _)) = r1 == r2
     sameRank _ = False
 
 -- Dealer hits on soft 16 and under
 prop_dealer_hits_under_17 :: Property
-prop_dealer_hits_under_17 = property $ do
+prop_dealer_hits_under_17 = property do
   dealer@(Dealer hand) <- forAll genDealer
   (score hand < 17) === dealerShouldHit dealer
 
 -- A hand of only Aces is valued correctly (each additional Ace counts as 1)
 prop_all_aces_hand_values_correctly :: Property
-prop_all_aces_hand_values_correctly = property $ do
+prop_all_aces_hand_values_correctly = property do
   n <- forAll $ Gen.int (Range.linear 1 10)
   suit <- forAll genSuit
   let hand = Hand $ replicate n (Card Ace suit)
       expected = if n == 1 then 11 else 11 + (n - 1)
   score hand === expected
-
-hasAce :: Hand -> Bool
-hasAce (Hand hand) = any isAce hand
-
-genRank :: Gen Rank
-genRank = Gen.enumBounded
-
-genSuit :: Gen Suit
-genSuit = Gen.enumBounded
-
-genCard :: Gen Card
-genCard = liftA2 Card genRank genSuit
-
-genHand :: Gen Hand
-genHand = Hand <$> Gen.list (Range.linear 1 5) genCard
-
-genTwoCardHand :: Gen Hand
-genTwoCardHand = Hand <$> replicateM 2 genCard
-
-genDealer :: Gen Dealer
-genDealer = fmap Dealer genHand

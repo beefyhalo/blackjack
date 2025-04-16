@@ -11,14 +11,14 @@ import Data.Set qualified as Set
 import Domain
 import GameTopology
 
-decideDealing :: Game phase -> DealingCommand -> Decision
+decideDealing :: Game phase -> DealingCommand -> Either GameError DealingEvent
 decideDealing = \case
   Game {state = DealingState pids deck} -> \case
     DealInitialCards ->
       maybe (Left EmptyDeck) Right do
         (playerHands, deck') <- dealNTo 2 (Map.keys pids) deck
         (dealerHand, _) <- dealN 2 deck'
-        Just (DealingEvt $ CardsDealt playerHands (Dealer dealerHand))
+        Just (CardsDealt playerHands (Dealer dealerHand))
   Game {state = BettingState {}} -> \_ -> Left PlayersStillBetting
   _ -> \_ -> Left BadCommand
 

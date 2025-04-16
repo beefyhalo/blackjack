@@ -55,6 +55,7 @@ data Game (phase :: GamePhase) = Game
     nextPlayerId :: Int,
     state :: GameState phase
   }
+  deriving (Eq, Show)
 
 withUpdatedRng :: Game v -> Game v
 withUpdatedRng game = game {stdGen = let (_, g') = split (stdGen game) in g'}
@@ -72,6 +73,10 @@ data GameState (phase :: GamePhase) where
   ResultState :: PlayerMap -> GameState 'Result
   ExitedState :: GameState 'GameOver
 
+deriving instance Eq (GameState phase)
+
+deriving instance Show (GameState phase)
+
 type PlayerMap = Map.Map PlayerId Player
 
 data GameContext = GameContext
@@ -79,21 +84,25 @@ data GameContext = GameContext
     rounds :: Map.Map PlayerId PlayerRound,
     dealer :: Dealer
   }
+  deriving (Eq, Show)
 
 data InsuranceContext = InsuranceContext
   { context :: GameContext,
     insurancePayouts :: Map.Map PlayerId InsurancePayout
   }
+  deriving (Eq, Show)
 
 data OpeningContext = OpeningContext
   { insuranceContext :: InsuranceContext,
     readyPlayers :: Set.Set PlayerId
   }
+  deriving (Eq, Show)
 
 data ResolutionContext = ResolutionContext
   { resolvedRounds :: Map.Map PlayerId PlayerRound,
     resolvedDealer :: Dealer,
     resolvedInsurancePayouts :: Map.Map PlayerId InsurancePayout
   }
+  deriving (Eq, Show)
 
 type Decision = Either GameError Event

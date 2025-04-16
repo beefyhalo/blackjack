@@ -353,6 +353,9 @@ canSplit :: Hand -> Bool
 canSplit (Hand [a, b]) = rank a == rank b
 canSplit _ = False
 
+hasAce :: Hand -> Bool
+hasAce (Hand hand) = any isAce hand
+
 data Card = Card {rank :: Rank, suit :: Suit}
   deriving (Show, Eq, Bounded)
 

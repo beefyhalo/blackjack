@@ -8,11 +8,9 @@ import Crem.Decider (EvolutionResult (EvolutionResult))
 import Domain
 import GameTopology
 
-decideResult :: Game phase -> ResultCommand -> Decision
-decideResult = \case
-  Game {state = ResultState {}} -> \case
-    RestartGame -> Right (ResultEvt GameRestarted)
-  _ -> \_ -> Left GameAlreadyStarted
+decideResult :: Game phase -> ResultCommand -> Either GameError ResultEvent
+decideResult Game {state = ResultState {}} RestartGame = Right GameRestarted
+decideResult _ _ = Left GameAlreadyStarted
 
 evolveResult :: Game Result -> ResultEvent -> EvolutionResult GameTopology Game Result output
 evolveResult game@Game {state = ResultState players} = \case

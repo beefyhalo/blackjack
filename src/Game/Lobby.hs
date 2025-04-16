@@ -9,18 +9,18 @@ import Data.Map.Strict qualified as Map
 import Domain
 import GameTopology
 
-decideLobby :: Game phase -> LobbyCommand -> Decision
+decideLobby :: Game phase -> LobbyCommand -> Either GameError LobbyEvent
 decideLobby = \case
   Game {state = LobbyState players, nextPlayerId} -> \case
     JoinGame name ->
       let pid = PlayerId nextPlayerId
-       in Right (LobbyEvt $ PlayerJoined pid name)
+       in Right (PlayerJoined pid name)
     LeaveGame pid
       | Map.notMember pid players -> Left (PlayerNotFound pid)
-      | otherwise -> Right (LobbyEvt $ PlayerLeft pid)
+      | otherwise -> Right (PlayerLeft pid)
     StartGame
       | null players -> Left TooFewPlayers
-      | otherwise -> Right (LobbyEvt GameStarted)
+      | otherwise -> Right GameStarted
   _ -> const (Left GameAlreadyStarted)
 
 evolveLobby :: Game InLobby -> LobbyEvent -> EvolutionResult GameTopology Game InLobby output

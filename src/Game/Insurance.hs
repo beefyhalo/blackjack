@@ -13,22 +13,22 @@ import Domain
 import GameTopology
 import Prelude hiding (round)
 
-decideInsurance :: Game phase -> InsuranceCommand -> Decision
+decideInsurance :: Game phase -> InsuranceCommand -> Either GameError InsuranceEvent
 decideInsurance = \case
   Game {state = OfferingInsuranceState GameContext {rounds, dealer}} -> \case
     TakeInsurance pid sidebet ->
       withPlayerRound pid rounds \PlayerRound {player = Player {stack}, insurance} ->
         if isJust insurance
           then Left PlayerAlreadyInsured
-          else withValidBet sidebet (chips stack) (Right . InsuranceEvt . PlayerTookInsurance pid)
+          else withValidBet sidebet (chips stack) (Right . PlayerTookInsurance pid)
     RejectInsurance pid ->
       withPlayerRound pid rounds \PlayerRound {insurance} ->
         if isJust insurance
           then Left PlayerAlreadyInsured
-          else Right (InsuranceEvt $ PlayerDeclinedInsurance pid)
+          else Right (PlayerDeclinedInsurance pid)
     ResolveInsurance ->
       let insurancePayouts = fmap (payoutForInsurance dealer) rounds
-       in Right (InsuranceEvt $ InsuranceResolved insurancePayouts)
+       in Right (InsuranceResolved insurancePayouts)
   _ -> \_ -> Left BadCommand
 
 evolveOfferingInsurance :: Game OfferingInsurance -> InsuranceEvent -> EvolutionResult GameTopology Game OfferingInsurance output

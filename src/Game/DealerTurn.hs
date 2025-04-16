@@ -8,12 +8,12 @@ import Crem.Decider (EvolutionResult (EvolutionResult))
 import Domain
 import GameTopology
 
-decideDealerPlay :: Game phase -> DealerTurnCommand -> Decision
+decideDealerPlay :: Game phase -> DealerTurnCommand ->  Either GameError DealerTurnEvent
 decideDealerPlay = \case
   Game {state = DealerTurnState InsuranceContext {context = GameContext {deck, dealer}}} -> \case
     DealerPlay ->
       let dealer' = dealerPlay dealer deck
-       in Right (DealerTurnEvt $ DealerPlayed dealer')
+       in Right (DealerPlayed dealer')
   Game {state = PlayerTurnState {}} -> \_ -> Left PlayersStillPlaying
   _ -> \_ -> Left BadCommand
   where

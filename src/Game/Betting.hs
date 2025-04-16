@@ -10,7 +10,7 @@ import Data.Map.Strict qualified as Map
 import Domain
 import GameTopology
 
-decideBetting :: Game phase -> BettingCommand -> Decision
+decideBetting :: Game phase -> BettingCommand -> Either GameError BettingEvent
 decideBetting = \case
   Game {state = BettingState players} -> \case
     PlaceBet pid bet ->
@@ -18,7 +18,7 @@ decideBetting = \case
         Nothing -> Left (PlayerNotFound pid)
         Just Player {stack = PlayerStack currentBet chips}
           | currentBet > 0 -> Left (PlayerAlreadyBet pid)
-          | otherwise -> withValidBet bet chips (Right . BettingEvt . BetPlaced pid)
+          | otherwise -> withValidBet bet chips (Right . BetPlaced pid)
   _ -> \_ -> Left BadCommand
 
 evolveBetting :: Game AwaitingBets -> BettingEvent -> EvolutionResult GameTopology Game AwaitingBets output

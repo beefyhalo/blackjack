@@ -82,6 +82,7 @@ test-suite blackjack-test
   main-is: Spec.hs
   other-modules:
       Game.DomainSpec
+      Game.Gen
       Game.StateTest.Betting
       Game.StateTest.Dealing
       Game.StateTest.Lobby
