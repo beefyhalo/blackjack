@@ -23,7 +23,7 @@ genCard :: Gen Card
 genCard = liftA2 Card genRank genSuit
 
 genHand :: Gen Hand
-genHand = Hand <$> Gen.list (Range.linear 1 5) genCard
+genHand = Hand <$> Gen.list (Range.linear 2 6) genCard
 
 genTwoCardHand :: Gen Hand
 genTwoCardHand = Hand <$> replicateM 2 genCard

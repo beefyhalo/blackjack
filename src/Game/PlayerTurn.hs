@@ -109,7 +109,8 @@ evolveOpeningTurn game@Game {state = OpeningTurnState OpeningContext {insuranceC
             EvolutionResult next@Game {state = PlayerTurnState InsuranceContext {context = GameContext deck' rounds' dealer'}}
               | Set.size readyPlayers == Map.size rounds' -> EvolutionResult next
               | otherwise ->
-                  let readyPlayers' = Set.insert pid readyPlayers
+                  let round = rounds' Map.! pid
+                      readyPlayers' = if hasCompletedTurn round then Set.insert pid readyPlayers else readyPlayers
                       insuranceContext' = insuranceContext {context = GameContext deck' rounds' dealer'}
                    in EvolutionResult next {state = OpeningTurnState (OpeningContext insuranceContext' readyPlayers')}
             EvolutionResult next@Game {state = ResolvingState {}} -> EvolutionResult next
