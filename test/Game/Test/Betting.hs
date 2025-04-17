@@ -30,7 +30,10 @@ prop_decide_bet_emits_PlaceBet = property do
     Right (BetPlaced pid' bet') -> pid === pid' >> bet === bet'
     decision -> annotateShow decision >> failure
 
+-- decide rejects with a MalsizedBet
+
 -- decide rejects if not in the lobby
+
 -- evolve updates the state with a joined player
 prop_evolve_BetPlaced_advances_state :: Property
 prop_evolve_BetPlaced_advances_state = property do

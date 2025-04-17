@@ -4,6 +4,7 @@ import Game.DomainSpec qualified as DomainSpec
 import Game.Test.Betting qualified as BettingSpec
 import Game.Test.Dealing qualified as DealingSpec
 import Game.Test.Lobby qualified as LobbySpec
+import Game.Test.Insurance qualified as InsuranceSpec
 import Hedgehog.Main (defaultMain)
 
 main :: IO ()
@@ -12,5 +13,6 @@ main =
     [ DomainSpec.tests,
       LobbySpec.tests,
       BettingSpec.tests,
-      DealingSpec.tests
+      DealingSpec.tests,
+      InsuranceSpec.tests
     ]

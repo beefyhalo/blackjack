@@ -85,6 +85,7 @@ test-suite blackjack-test
       Game.Gen
       Game.Test.Betting
       Game.Test.Dealing
+      Game.Test.Insurance
       Game.Test.Lobby
       Paths_blackjack
   autogen-modules:
@@ -101,6 +102,7 @@ test-suite blackjack-test
     , hedgehog
     , mmorph
     , mtl
+    , nonempty-zipper
     , random
     , text
     , transformers

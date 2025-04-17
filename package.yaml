@@ -83,3 +83,4 @@ tests:
     - transformers
     - random
     - containers
+    - nonempty-zipper

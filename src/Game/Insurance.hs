@@ -14,7 +14,7 @@ import GameTopology
 import Prelude hiding (round)
 
 decideInsurance :: Game phase -> InsuranceCommand -> Either GameError InsuranceEvent
-decideInsurance Game {state = OfferingInsuranceState GameContext {rounds, dealer}} = \case
+decideInsurance Game {state = OfferingInsuranceState GameContext {rounds}} = \case
   TakeInsurance pid sidebet ->
     withPlayerRound pid rounds \PlayerRound {player = Player {stack}, insurance} ->
       if isJust insurance
@@ -25,9 +25,13 @@ decideInsurance Game {state = OfferingInsuranceState GameContext {rounds, dealer
       if isJust insurance
         then Left PlayerAlreadyInsured
         else Right (PlayerDeclinedInsurance pid)
+  ResolveInsurance -> Left PlayersStillBetting
+-- accept the ResolveInsurance command
+decideInsurance Game {state = ResolvingInsuranceState GameContext {rounds, dealer}} = \case
   ResolveInsurance ->
     let insurancePayouts = fmap (payoutForInsurance dealer) rounds
      in Right (InsuranceResolved insurancePayouts)
+  _ -> Left BadCommand
 decideInsurance _ = \_ -> Left BadCommand
 
 evolveOfferingInsurance :: Game OfferingInsurance -> InsuranceEvent -> EvolutionResult GameTopology Game OfferingInsurance output
@@ -46,12 +50,12 @@ evolveOfferingInsurance game@Game {state = OfferingInsuranceState context@GameCo
 
 evolveResolvingInsurance :: Game ResolvingInsurance -> InsuranceEvent -> EvolutionResult GameTopology Game ResolvingInsurance output
 evolveResolvingInsurance game@Game {state = ResolvingInsuranceState context@GameContext {rounds, dealer}} = \case
-  InsuranceResolved results ->
-    let rounds' = Map.mapWithKey settleInsurance results
-        openingContext = OpeningContext (InsuranceContext context {rounds = rounds'} results) Set.empty
+  InsuranceResolved payouts ->
+    let rounds' = Map.mapWithKey settleInsurance payouts
+        openingContext = OpeningContext (InsuranceContext context {rounds = rounds'} payouts) Set.empty
         Dealer dealerHand = dealer
      in if isBlackjack dealerHand
-          then EvolutionResult game {state = ResolvingState (ResolutionContext rounds' dealer results)}
+          then EvolutionResult game {state = ResolvingState (ResolutionContext rounds' dealer payouts)}
           else EvolutionResult game {state = OpeningTurnState openingContext}
   _ -> EvolutionResult game
   where

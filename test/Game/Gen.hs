@@ -3,6 +3,7 @@
 module Game.Gen (module Game.Gen) where
 
 import Control.Monad (replicateM)
+import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Text (Text)
 import Domain
 import GameTopology
@@ -26,8 +27,18 @@ genHand = Hand <$> Gen.list (Range.linear 1 5) genCard
 genTwoCardHand :: Gen Hand
 genTwoCardHand = Hand <$> replicateM 2 genCard
 
+genBlackjackHand :: Gen Hand
+genBlackjackHand = do
+  tenCard <- Card <$> Gen.element [Ten, Jack, Queen, King] <*> genSuit
+  ace <- Card Ace <$> genSuit
+  Gen.element [Hand [ace, tenCard], Hand [tenCard, ace]]
+
 genDealer :: Gen Dealer
-genDealer = fmap Dealer genHand
+genDealer =
+  Gen.frequency
+    [ (50, fmap Dealer genBlackjackHand),
+      (50, fmap Dealer genHand)
+    ]
 
 genDeck :: Gen Deck
 genDeck =
@@ -60,8 +71,46 @@ genPlayer = Player <$> genPlayerId <*> genPlayerStack <*> genPlayerName
 genPlayerMap :: Gen PlayerMap
 genPlayerMap = Gen.map (Range.linear 0 100) (liftA2 (,) genPlayerId genPlayer)
 
+genPlayerRound :: Gen PlayerRound
+genPlayerRound =
+  PlayerRound
+    <$> genPlayer
+    <*> fmap Z.fromNonEmpty (Gen.nonEmpty (Range.linear 1 5) genHandState)
+    <*> Gen.maybe genInsuranceChoice
+    <*> Gen.bool
+
+genHandState :: Gen HandState
+genHandState =
+  HandState
+    <$> genHand
+    <*> genBet 1000
+    <*> Gen.bool
+    <*> Gen.bool
+
+genInsuranceChoice :: Gen InsuranceChoice
+genInsuranceChoice =
+  Gen.choice
+    [ TookInsurance <$> genBet 1000,
+      Gen.constant DeclinedInsurance
+    ]
+
+genInsurancePayout :: Gen InsurancePayout
+genInsurancePayout =
+  Gen.choice
+    [ fmap WonInsurancePayout genChips,
+      fmap LostInsuranceBet genChips,
+      Gen.constant NoInsurance
+    ]
+
 genStdGen :: Gen StdGen
 genStdGen = fmap mkStdGen Gen.enumBounded
+
+genGameContext :: Gen GameContext
+genGameContext =
+  GameContext
+    <$> genDeck
+    <*> Gen.map (Range.linear 1 20) (liftA2 (,) genPlayerId genPlayerRound)
+    <*> genDealer
 
 genLobbyStateGame :: Gen (Game InLobby)
 genLobbyStateGame = do
@@ -86,6 +135,22 @@ genDealingStateGame = do
   playerMap <- Gen.filter (not . null) genPlayerMap
   deck <- genDeck
   let game = Game stdGen nextPlayerId (DealingState playerMap deck)
+  pure game
+
+genOfferingInsuranceStateGame :: Gen (Game OfferingInsurance)
+genOfferingInsuranceStateGame = do
+  stdGen <- genStdGen
+  nextPlayerId <- Gen.int (Range.linear 0 1000)
+  gameContext <- genGameContext
+  let game = Game stdGen nextPlayerId (OfferingInsuranceState gameContext)
+  pure game
+
+genResolvingInsuranceStateGame :: Gen (Game ResolvingInsurance)
+genResolvingInsuranceStateGame = do
+  stdGen <- genStdGen
+  nextPlayerId <- Gen.int (Range.linear 0 1000)
+  gameContext <- genGameContext
+  let game = Game stdGen nextPlayerId (ResolvingInsuranceState gameContext)
   pure game
 
 data SomeGame = forall p. SomeGame (Game p)
