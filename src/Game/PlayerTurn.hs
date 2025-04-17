@@ -44,6 +44,8 @@ decideStand pid = \case
       withPlayerRound pid rounds \_ -> Right (PlayerStood pid)
 
 decideDoubleDown :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
+decideDoubleDown pid Game {state = OpeningTurnState OpeningContext {readyPlayers}}
+  | Set.member pid readyPlayers = Left PlayerAlreadyActed
 decideDoubleDown pid Game {state = OpeningTurnState OpeningContext {insuranceContext}} =
   let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext
    in withPlayerRound pid rounds \PlayerRound {hands, player = Player {stack = PlayerStack {chips}}} ->
@@ -54,28 +56,27 @@ decideDoubleDown pid Game {state = OpeningTurnState OpeningContext {insuranceCon
 decideDoubleDown _ _ = Left BadCommand
 
 decideSurrender :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
-decideSurrender pid = \case
-  Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} ->
-    let InsuranceContext {context = GameContext {rounds}} = insuranceContext
-     in withPlayerRound pid rounds \_ ->
-          if Set.member pid readyPlayers
-            then Left BadCommand
-            else Right (PlayerSurrendered pid)
-  _ -> Left BadCommand
+decideSurrender pid Game {state = OpeningTurnState OpeningContext {readyPlayers}}
+  | Set.member pid readyPlayers = Left PlayerAlreadyActed
+decideSurrender pid Game {state = OpeningTurnState OpeningContext {insuranceContext}} =
+  let InsuranceContext {context = GameContext {rounds}} = insuranceContext
+   in withPlayerRound pid rounds \_ -> Right (PlayerSurrendered pid)
+decideSurrender _ _ = Left BadCommand
 
+-- TODO check there is enough chips in stack or MalsizedBet
 decideSplit :: PlayerId -> Game phase -> Either GameError PlayerTurnEvent
-decideSplit pid Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} =
+decideSplit pid Game {state = OpeningTurnState OpeningContext {readyPlayers}}
+  | Set.member pid readyPlayers = Left PlayerAlreadyActed
+decideSplit pid Game {state = OpeningTurnState OpeningContext {insuranceContext}} =
   let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext
    in withPlayerRound pid rounds \PlayerRound {hands} ->
         let HandState {hand} = Z.current hands
-         in if Set.member pid readyPlayers
-              then Left PlayerAlreadyActed -- TODO allow configuration
-              else case extractSplitPair hand of
-                Just (c1, c2) -> maybe (Left EmptyDeck) Right do
-                  (d1, deck') <- drawCard deck
-                  (d2, _) <- drawCard deck'
-                  Just (PlayerSplitHand pid c1 c2 d1 d2)
-                Nothing -> Left BadCommand -- not a valid split
+         in case extractSplitPair hand of
+              Just (c1, c2) -> maybe (Left EmptyDeck) Right do
+                (d1, deck') <- drawCard deck
+                (d2, _) <- drawCard deck'
+                Just (PlayerSplitHand pid c1 c2 d1 d2)
+              Nothing -> Left BadCommand -- not a valid split
 decideSplit _ _ = Left BadCommand
 
 evolveOpeningTurn :: Game OpeningTurn -> PlayerTurnEvent -> EvolutionResult GameTopology Game OpeningTurn output

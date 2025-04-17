@@ -4,6 +4,7 @@ module Game.Gen (module Game.Gen) where
 
 import Control.Monad (replicateM)
 import Data.List.NonEmpty.Zipper qualified as Z
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Domain
 import GameTopology
@@ -153,6 +154,30 @@ genResolvingInsuranceStateGame = do
   let game = Game stdGen nextPlayerId (ResolvingInsuranceState gameContext)
   pure game
 
+genOpeningTurnStateGame :: Gen (Game OpeningTurn)
+genOpeningTurnStateGame = do
+  stdGen <- genStdGen
+  nextPlayerId <- Gen.int (Range.linear 0 1000)
+  gameContext@(GameContext _ rounds _) <- genGameContext
+  let pids = Map.keysSet rounds
+  payouts <- Gen.map (Range.linear 0 10) (liftA2 (,) (Gen.element pids) genInsurancePayout)
+  readyPlayers <- Gen.subset pids
+  let insuranceContext = InsuranceContext gameContext payouts
+  let openingContext = OpeningContext insuranceContext readyPlayers
+  let game = Game stdGen nextPlayerId (OpeningTurnState openingContext)
+  pure game
+
+genPlayerTurnStateGame :: Gen (Game PlayerTurn)
+genPlayerTurnStateGame = do
+  stdGen <- genStdGen
+  nextPlayerId <- Gen.int (Range.linear 0 1000)
+  gameContext@(GameContext _ rounds _) <- genGameContext
+  let pids = Map.keysSet rounds
+  payouts <- Gen.map (Range.linear 0 10) (liftA2 (,) (Gen.element pids) genInsurancePayout)
+  let context = InsuranceContext gameContext payouts
+  let game = Game stdGen nextPlayerId (PlayerTurnState context)
+  pure game
+
 data SomeGame = forall p. SomeGame (Game p)
 
 genGame :: Gen SomeGame
@@ -160,5 +185,13 @@ genGame =
   Gen.choice
     [ fmap SomeGame genLobbyStateGame,
       fmap SomeGame genBettingStateGame,
-      fmap SomeGame genDealingStateGame
+      fmap SomeGame genDealingStateGame,
+      fmap SomeGame genOfferingInsuranceStateGame,
+      fmap SomeGame genResolvingInsuranceStateGame,
+      fmap SomeGame genOpeningTurnStateGame,
+      fmap SomeGame genPlayerTurnStateGame
     ]
+
+-- genSomePlayerTurnState :: Gen SomeGame
+-- genSomePlayerTurnState =
+--   Gen.choice [fmap SomeGame genOpeningTurnStateGame, fmap SomeGame genPlayerTurnStateGame]

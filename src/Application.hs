@@ -1,7 +1,7 @@
 module Application (stateMachine, projection, whole) where
 
 import Control.Arrow ((&&&))
-import Crem.StateMachine (StateMachine, StateMachineT (Basic, Kleisli, Feedback))
+import Crem.StateMachine (StateMachine, StateMachineT (..))
 import Data.Foldable (fold)
 import Data.List (singleton)
 import Data.Profunctor (rmap)
@@ -15,7 +15,7 @@ stateMachine :: StdGen -> StateMachine Command Decision
 stateMachine stdGen = Basic (baseMachine stdGen)
 
 -- TODO: Add a policy to emit a ResolveInsurance (ResolveRound?) when the players are in
--- policy = Feedback _ 
+-- policy = Feedback _
 
 projection :: StateMachine Event Summary
 projection = Basic gameProjection
