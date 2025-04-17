@@ -26,9 +26,7 @@ prop_decide_bet_emits_PlaceBet = property do
       player' = player {stack = PlayerStack 0 chips}
       game' = game {state = BettingState (Map.insert pid player' players)}
   bet <- forAll $ genBet chips
-  case decideBetting game' (PlaceBet pid bet) of
-    Right (BetPlaced pid' bet') -> pid === pid' >> bet === bet'
-    decision -> annotateShow decision >> failure
+  decideBetting game' (PlaceBet pid bet) === Right (BetPlaced pid bet)
 
 -- decide rejects with a MalsizedBet
 
