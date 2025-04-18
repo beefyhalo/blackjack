@@ -37,6 +37,7 @@ library
       Game.Resolution
       Game.Result
       GameTopology
+      Policy
       Projection
   other-modules:
       Paths_blackjack

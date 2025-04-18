@@ -1,4 +1,4 @@
-module Application (stateMachine, projection, whole) where
+module Application (stateMachine, stateMachineWithPolicy, projection, whole) where
 
 import Control.Arrow ((&&&))
 import Crem.StateMachine (StateMachine, StateMachineT (..))
@@ -8,14 +8,21 @@ import Data.Profunctor (rmap)
 import Domain
 import Game (baseMachine)
 import GameTopology (Decision)
+import Policy (insurancePolicy)
 import Projection (Summary, gameProjection)
 import System.Random (StdGen)
 
 stateMachine :: StdGen -> StateMachine Command Decision
 stateMachine stdGen = Basic (baseMachine stdGen)
 
--- TODO: Add a policy to emit a ResolveInsurance (ResolveRound?) when the players are in
--- policy = Feedback _
+policy :: StateMachine Event (Maybe Command)
+policy = Basic insurancePolicy
+
+stateMachineWithPolicy :: StdGen -> StateMachine Command [Event]
+stateMachineWithPolicy stdGen =
+  let stateMachine' = rmap (foldMap singleton) (stateMachine stdGen)
+      policy' = rmap (foldMap singleton) policy
+   in Feedback stateMachine' policy'
 
 projection :: StateMachine Event Summary
 projection = Basic gameProjection
