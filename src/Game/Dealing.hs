@@ -23,7 +23,7 @@ decideDealing _ = \_ -> Left BadCommand
 
 evolveDealing :: Game DealingCards -> DealingEvent -> EvolutionResult GameTopology Game DealingCards output
 evolveDealing game@Game {state = DealingState players deck} = \case
-  CardsDealt playerHands dealer@(Dealer dealerHand)
+  CardsDealt playerHands dealer
     | isAce (visibleCard dealer) ->
         EvolutionResult game {state = OfferingInsuranceState (GameContext deck' rounds dealer)}
     | otherwise ->
@@ -32,5 +32,5 @@ evolveDealing game@Game {state = DealingState players deck} = \case
     where
       rounds = Map.fromList [(pid, initPlayerRound hand (players Map.! pid)) | (pid, hand) <- playerHands]
       deck' =
-        let cardsDrawn = sum (map (handSize . snd) playerHands) + handSize dealerHand
+        let cardsDrawn = sum (map (handSize . snd) playerHands) + handSize (dealerHand dealer)
          in deck {drawn = drawn deck + cardsDrawn}

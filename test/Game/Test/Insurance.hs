@@ -130,8 +130,8 @@ prop_evolve_InsuranceResolved = property do
       Map.size rounds === Map.size rounds'
       void $ Map.traverseWithKey checkStack rounds'
       assert (null readyPlayers)
-    EvolutionResult Game {state = ResolvingState ResolutionContext {resolvedDealer = Dealer dealerHand}} ->
-      cover 20 "Dealer Blackjack" (isBlackjack dealerHand)
+    EvolutionResult Game {state = ResolvingState ResolutionContext {resolvedDealer}} ->
+      cover 20 "Dealer Blackjack" (isBlackjack (dealerHand resolvedDealer))
     EvolutionResult game' -> annotateShow game' >> failure
 
 forAllNonOfferingInsuranceStateGame :: PropertyT IO SomeGame

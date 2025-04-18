@@ -41,8 +41,8 @@ prop_evolve_CardsDealt_advances_state = property do
   dealer <- forAll genDealer
   let evolved = evolveDealing game (CardsDealt playerHands dealer)
   case evolved of
-    EvolutionResult Game {state = OfferingInsuranceState (GameContext deck' rounds (Dealer dealerHand))} -> do
-      assert (hasAce dealerHand)
+    EvolutionResult Game {state = OfferingInsuranceState (GameContext deck' rounds dealer')} -> do
+      assert (hasAce (dealerHand dealer'))
       length rounds === length playerHands
       diff (drawn deck) (<) (drawn deck')
     EvolutionResult Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} -> do

@@ -53,8 +53,7 @@ evolveResolvingInsurance game@Game {state = ResolvingInsuranceState context@Game
   InsuranceResolved payouts ->
     let rounds' = Map.mapWithKey settleInsurance payouts
         openingContext = OpeningContext (InsuranceContext context {rounds = rounds'} payouts) Set.empty
-        Dealer dealerHand = dealer
-     in if isBlackjack dealerHand
+     in if isBlackjack (dealerHand dealer)
           then EvolutionResult game {state = ResolvingState (ResolutionContext rounds' dealer payouts)}
           else EvolutionResult game {state = OpeningTurnState openingContext}
   _ -> EvolutionResult game

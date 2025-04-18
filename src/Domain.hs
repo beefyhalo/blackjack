@@ -79,7 +79,7 @@ data HandState = HandState
 initHandState :: Hand -> HandState
 initHandState hand = HandState hand (Bet 0) False False
 
-newtype Dealer = Dealer Hand
+newtype Dealer = Dealer {dealerHand :: Hand}
   deriving (Eq, Show)
 
 visibleCard :: Dealer -> Card
