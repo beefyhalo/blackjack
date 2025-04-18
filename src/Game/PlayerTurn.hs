@@ -135,7 +135,10 @@ evolvePlayerTurn game@Game {state = PlayerTurnState insuranceContext} = \case
     InsuranceContext {context = GameContext deck rounds dealer, insurancePayouts} = insuranceContext
     nextDeck = deck {drawn = drawn deck + 1}
     advanceState deck' pid adjustRound =
-      let moveHandFocus round@PlayerRound {hands = h} = round {hands = fromMaybe (Z.start h) (Z.right h)}
+      let moveHandFocus round@PlayerRound {hands = h} =
+            if hasCompletedTurn round
+              then round {hands = fromMaybe (Z.start h) (Z.right h)}
+              else round
           rounds' = Map.adjust (moveHandFocus . adjustRound) pid rounds
           everyoneLost = all hasLost rounds'
           everyoneDone = all hasCompletedTurn rounds'

@@ -88,6 +88,8 @@ test-suite blackjack-test
       Game.Test.Insurance
       Game.Test.Lobby
       Game.Test.PlayerTurn
+      Game.Test.Resolution
+      Game.Test.Result
       Paths_blackjack
   autogen-modules:
       Paths_blackjack

@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -14,7 +15,7 @@ import Data.Set qualified as Set
 import Domain
 import Game.Gen
 import Game.PlayerTurn (decidePlayerTurn, evolveOpeningTurn)
-import GameTopology (Game (Game, state), GameContext (..), GameState (DealerTurnState, OpeningTurnState, PlayerTurnState, ResolvingState), InsuranceContext (..), OpeningContext (..))
+import GameTopology (Game (Game, state), GameContext (..), GamePhase (..), GameState (DealerTurnState, OpeningTurnState, PlayerTurnState, ResolvingState), InsuranceContext (..), OpeningContext (..))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Prelude hiding (round)
@@ -134,31 +135,37 @@ prop_reject_double_surrender = property do
   decidePlayerTurn game' (Surrender pid) === Left PlayerAlreadyActed
 
 prop_evolve_HitCard :: Property
-prop_evolve_HitCard = property do success
+prop_evolve_HitCard = property do
+  (game@Game {state = OpeningTurnState OpeningContext {insuranceContext}}, pid, round) <- forAll genOpeningTurnStateUnplayedHand
+  let InsuranceContext {context = GameContext deck _ _} = insuranceContext
+  (card, _) <- maybe discard pure (drawCard deck)
+  let evolved = evolveOpeningTurn game (HitCard pid card)
+  case evolved of
+    EvolutionResult Game {state = OpeningTurnState OpeningContext {insuranceContext = insuranceContext'}} -> do
+      let InsuranceContext {context = GameContext deck' rounds _} = insuranceContext'
+          round' = rounds Map.! pid
+          cardCount = handSize $ hand (Z.current (hands round))
+          cardCount' = handSize $ hand (Z.current (hands round'))
+      cardCount + 1 === cardCount'
+      drawn deck + 1 === drawn deck'
+    EvolutionResult game' -> annotateShow game' >> failure
 
 prop_evolve_DoubleDown :: Property
 prop_evolve_DoubleDown = property do
-  game@Game {state = OpeningTurnState OpeningContext {insuranceContext}} <- forAll genOpeningTurnStateGame
-  let InsuranceContext {context = GameContext _ rounds _} = insuranceContext
-  newHandState <- forAll genUnplayedHand
-  (pid, round) <- forAll $ Gen.element (Map.toList rounds)
-  -- replace the current focus with an unplayed hand and add a new unplayed hand
-  let currentHand = Z.current (hands round)
-      currentHand' = currentHand {hasDoubledDown = False, hasStood = False}
-      hands' = Z.push newHandState (Z.replace currentHand' $ hands round)
-      round' = round {hands = hands', hasSurrendered = False}
-      rounds' = Map.insert pid round' rounds
-      insuranceContext' = insuranceContext {context = (context insuranceContext) {rounds = rounds'}}
-      readyPlayers = Set.empty
-      game' = game {state = OpeningTurnState (OpeningContext insuranceContext' readyPlayers)}
+  (game, pid, round) <- forAll genOpeningTurnStateUnplayedHand
   card <- forAll genCard
-  let evolved = evolveOpeningTurn game' (PlayerDoubledDown pid card)
+  let evolved = evolveOpeningTurn game (PlayerDoubledDown pid card)
   case evolved of
-    EvolutionResult Game {state = OpeningTurnState OpeningContext {insuranceContext = insuranceContext''}} -> do
-      let InsuranceContext {context = GameContext _ rounds'' _} = insuranceContext''
-          round'' = rounds'' Map.! pid
-      annotateShow round''
-      length (filter hasDoubledDown (toList (hands round'))) + 1 === length (filter hasDoubledDown (toList (hands round'')))
+    EvolutionResult Game {state = OpeningTurnState OpeningContext {insuranceContext}} -> do
+      let InsuranceContext {context = GameContext _ rounds _} = insuranceContext
+          round' = rounds Map.! pid
+          cardCount = sum [handSize hand | HandState {hand} <- toList (hands round)]
+          cardCount' = sum [handSize hand | HandState {hand} <- toList (hands round')]
+          doubleDownCount = length (filter hasDoubledDown (toList (hands round)))
+          doubleDownCount' = length (filter hasDoubledDown (toList (hands round')))
+      annotateShow round'
+      cardCount + 1 === cardCount'
+      doubleDownCount + 1 === doubleDownCount'
     EvolutionResult game''@Game {state = PlayerTurnState {}} ->
       footnote "Game shouldn't be ready as we inserted a new hand" >> annotateShow game'' >> failure
     EvolutionResult game''@Game {state = DealerTurnState {}} ->
@@ -167,6 +174,25 @@ prop_evolve_DoubleDown = property do
       footnote "If the game is resolved, everyone must have lost. Which should be impossible for newHandState is a 2 card hand"
       failure
     EvolutionResult game'' -> annotateShow game'' >> failure
+
+-- test that readyPlayers increases
+
+-- replace the current focus with an unplayed hand and add a new unplayed hand
+genOpeningTurnStateUnplayedHand :: Gen (Game OpeningTurn, PlayerId, PlayerRound)
+genOpeningTurnStateUnplayedHand = do
+  game@Game {state = OpeningTurnState OpeningContext {insuranceContext}} <- genOpeningTurnStateGame
+  let InsuranceContext {context = GameContext _ rounds _} = insuranceContext
+  (pid, round) <- Gen.element (Map.toList rounds)
+  newHandState <- genUnplayedHand
+  let currentHand = Z.current (hands round)
+      currentHand' = currentHand {hasDoubledDown = False, hasStood = False}
+      hands' = Z.push newHandState (Z.replace currentHand' $ hands round)
+      round' = round {hands = hands', hasSurrendered = False}
+      rounds' = Map.insert pid round' rounds
+      insuranceContext' = insuranceContext {context = (context insuranceContext) {rounds = rounds'}}
+      readyPlayers = Set.empty
+      game' = game {state = OpeningTurnState (OpeningContext insuranceContext' readyPlayers)}
+  pure (game', pid, round')
   where
     genUnplayedHand =
       HandState

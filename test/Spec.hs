@@ -6,6 +6,8 @@ import Game.Test.Dealing qualified as DealingSpec
 import Game.Test.Insurance qualified as InsuranceSpec
 import Game.Test.Lobby qualified as LobbySpec
 import Game.Test.PlayerTurn qualified as PlayerTurnSpec
+import Game.Test.Resolution qualified as ResolutionSpec
+import Game.Test.Result qualified as ResultSpec
 import Hedgehog.Main (defaultMain)
 
 main :: IO ()
@@ -16,5 +18,7 @@ main =
       BettingSpec.tests,
       DealingSpec.tests,
       InsuranceSpec.tests,
-      PlayerTurnSpec.tests
+      PlayerTurnSpec.tests,
+      ResolutionSpec.tests,
+      ResultSpec.tests
     ]
