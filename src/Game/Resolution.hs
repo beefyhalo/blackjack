@@ -25,13 +25,10 @@ decideResolution Game {state = ResolvingState ResolutionContext {resolvedRounds,
           net = sum totalDelta
           pushed = sum totalPush
           insurancePayout = Map.lookup pid resolvedInsurancePayouts
-          insuranceDelta = case insurancePayout of
-            Just (WonInsurancePayout amt) -> amt
-            Just (LostInsuranceBet amt) -> -amt
-            _ -> 0
+          insuranceNet = maybe 0 insuranceDelta insurancePayout
        in PlayerSummary
             { handOutcomes = NE.fromList outcomes,
-              netChipChange = net + insuranceDelta,
+              netChipChange = net + insuranceNet,
               finalChips = chips stack + net,
               nextRoundBet = pushed,
               insurancePayout = insurancePayout

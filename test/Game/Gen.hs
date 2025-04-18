@@ -113,6 +113,41 @@ genInsurancePayouts :: Set.Set PlayerId -> Gen (Map.Map PlayerId InsurancePayout
 genInsurancePayouts pids =
   Gen.map (Range.linear 0 (length pids)) (liftA2 (,) (Gen.element pids) genInsurancePayout)
 
+genDealerOutcome :: Gen DealerOutcome
+genDealerOutcome =
+  Gen.choice
+    [ Gen.constant DealerBlackjack,
+      Gen.constant DealerBust,
+      fmap DealerFinalScore (Gen.int (Range.linear 0 1000))
+    ]
+
+genOutcome :: Gen Outcome
+genOutcome =
+  Gen.choice
+    [ fmap PlayerWins genWinReason,
+      fmap DealerWins genLossReason,
+      Gen.constant Push
+    ]
+
+genWinReason :: Gen WinReason
+genWinReason = Gen.element [Blackjack, OutscoredDealer]
+
+genLossReason :: Gen LossReason
+genLossReason = Gen.element [PlayerBust, Surrendered, OutscoredByDealer]
+
+genPlayerSummary :: Gen PlayerSummary
+genPlayerSummary =
+  PlayerSummary
+    <$> Gen.nonEmpty (Range.linear 1 5) genOutcome
+    <*> Gen.int (Range.linear 0 1000)
+    <*> genChips
+    <*> genBet 1000
+    <*> Gen.maybe genInsurancePayout
+
+genPlayerSummaries :: Set.Set PlayerId -> Gen (Map.Map PlayerId PlayerSummary)
+genPlayerSummaries pids =
+  Gen.map (Range.linear 0 (length pids)) (liftA2 (,) (Gen.element pids) genPlayerSummary)
+
 genStdGen :: Gen StdGen
 genStdGen = fmap mkStdGen Gen.enumBounded
 
@@ -201,8 +236,8 @@ genDealerTurnStateGame =
     <*> genNextPlayerId
     <*> fmap DealerTurnState genInsuranceContext
 
-genResolutionStateGame :: Gen (Game ResolvingHands)
-genResolutionStateGame =
+genResolvingStateGame :: Gen (Game ResolvingHands)
+genResolvingStateGame =
   Game
     <$> genStdGen
     <*> genNextPlayerId
@@ -228,6 +263,6 @@ genGame =
       fmap SomeGame genOpeningTurnStateGame,
       fmap SomeGame genPlayerTurnStateGame,
       fmap SomeGame genDealerTurnStateGame,
-      fmap SomeGame genResolutionStateGame,
+      fmap SomeGame genResolvingStateGame,
       fmap SomeGame genResultStateGame
     ]

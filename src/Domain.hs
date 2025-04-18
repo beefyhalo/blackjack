@@ -253,7 +253,7 @@ determineOutcome PlayerRound {hasSurrendered} HandState {hand} = \case
         LT -> DealerWins OutscoredByDealer
         EQ -> Push
 
-chipsDelta :: Bet -> Outcome -> Chips
+chipsDelta :: Bet -> Outcome -> Int
 chipsDelta Bet {current} = \case
   PlayerWins Blackjack -> payout 1.5
   PlayerWins _ -> payout 1.0
@@ -275,6 +275,12 @@ payoutForInsurance (Dealer dealerHand) PlayerRound {insurance} = case insurance 
     | isBlackjack dealerHand -> WonInsurancePayout (amt * 2) -- 2:1 insurance payout if the dealer has a blackjack
     | otherwise -> LostInsuranceBet amt
   _ -> NoInsurance
+
+insuranceDelta :: InsurancePayout -> Int
+insuranceDelta = \case
+  WonInsurancePayout amt -> amt
+  LostInsuranceBet amt -> -amt
+  NoInsurance -> 0
 
 data GameError
   = PlayerAlreadyJoined
