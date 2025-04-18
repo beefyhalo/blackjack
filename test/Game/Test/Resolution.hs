@@ -16,3 +16,8 @@ import Hedgehog.Gen qualified as Gen
 
 tests :: IO Bool
 tests = checkParallel $$discover
+
+prop_decide_emits_RoundResolved :: Property
+prop_decide_emits_RoundResolved = property do
+  game <- forAll genResolutionGameState
+  success

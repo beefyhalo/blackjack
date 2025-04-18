@@ -5,6 +5,7 @@ module Game.Gen (module Game.Gen) where
 import Control.Monad (replicateM)
 import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Data.Text (Text)
 import Domain
 import GameTopology
@@ -80,6 +81,11 @@ genPlayerRound =
     <*> Gen.maybe genInsuranceChoice
     <*> Gen.bool
 
+genPlayerRounds :: Gen (Map.Map PlayerId PlayerRound)
+genPlayerRounds =
+  Gen.map (Range.linear 1 20) $
+    liftA2 (,) genPlayerId genPlayerRound
+
 genHandState :: Gen HandState
 genHandState =
   HandState
@@ -103,86 +109,110 @@ genInsurancePayout =
       Gen.constant NoInsurance
     ]
 
+genInsurancePayouts :: Set.Set PlayerId -> Gen (Map.Map PlayerId InsurancePayout)
+genInsurancePayouts pids =
+  Gen.map (Range.linear 0 (length pids)) (liftA2 (,) (Gen.element pids) genInsurancePayout)
+
 genStdGen :: Gen StdGen
 genStdGen = fmap mkStdGen Gen.enumBounded
+
+genNextPlayerId :: Gen Int
+genNextPlayerId = Gen.int (Range.linear 0 1000)
 
 genGameContext :: Gen GameContext
 genGameContext =
   GameContext
     <$> genDeck
-    <*> Gen.map (Range.linear 1 20) (liftA2 (,) genPlayerId genPlayerRound)
+    <*> genPlayerRounds
     <*> genDealer
 
+genInsuranceContext :: Gen InsuranceContext
+genInsuranceContext = do
+  context@(GameContext _ rounds _) <- genGameContext
+  payouts <- genInsurancePayouts (Map.keysSet rounds)
+  pure (InsuranceContext context payouts)
+
+genOpeningContext :: Gen OpeningContext
+genOpeningContext = do
+  insuranceContext <- genInsuranceContext
+  readyPlayers <- Gen.subset (Map.keysSet (rounds (context insuranceContext)))
+  pure (OpeningContext insuranceContext readyPlayers)
+
+genResolutionContext :: Gen ResolutionContext
+genResolutionContext = do
+  rounds <- genPlayerRounds
+  dealer <- genDealer
+  payouts <- genInsurancePayouts (Map.keysSet rounds)
+  pure (ResolutionContext rounds dealer payouts)
+
 genLobbyStateGame :: Gen (Game InLobby)
-genLobbyStateGame = do
-  stdGen <- genStdGen
-  nextPlayerId <- Gen.int (Range.linear 0 1000)
-  playerMap <- genPlayerMap
-  let game = Game stdGen nextPlayerId (LobbyState playerMap)
-  pure game
+genLobbyStateGame =
+  Game
+    <$> genStdGen
+    <*> genNextPlayerId
+    <*> fmap LobbyState genPlayerMap
 
 genBettingStateGame :: Gen (Game AwaitingBets)
-genBettingStateGame = do
-  stdGen <- genStdGen
-  nextPlayerId <- Gen.int (Range.linear 0 1000)
-  playerMap <- Gen.filter (not . null) genPlayerMap
-  let game = Game stdGen nextPlayerId (BettingState playerMap)
-  pure game
+genBettingStateGame =
+  Game
+    <$> genStdGen
+    <*> genNextPlayerId
+    <*> fmap BettingState (Gen.filter (not . null) genPlayerMap)
 
 genDealingStateGame :: Gen (Game DealingCards)
-genDealingStateGame = do
-  stdGen <- genStdGen
-  nextPlayerId <- Gen.int (Range.linear 0 1000)
-  playerMap <- Gen.filter (not . null) genPlayerMap
-  deck <- genDeck
-  let game = Game stdGen nextPlayerId (DealingState playerMap deck)
-  pure game
+genDealingStateGame =
+  Game
+    <$> genStdGen
+    <*> genNextPlayerId
+    <*> liftA2 DealingState (Gen.filter (not . null) genPlayerMap) genDeck
 
 genOfferingInsuranceStateGame :: Gen (Game OfferingInsurance)
-genOfferingInsuranceStateGame = do
-  stdGen <- genStdGen
-  nextPlayerId <- Gen.int (Range.linear 0 1000)
-  gameContext <- genGameContext
-  let game = Game stdGen nextPlayerId (OfferingInsuranceState gameContext)
-  pure game
+genOfferingInsuranceStateGame =
+  Game
+    <$> genStdGen
+    <*> genNextPlayerId
+    <*> fmap OfferingInsuranceState genGameContext
 
 genResolvingInsuranceStateGame :: Gen (Game ResolvingInsurance)
-genResolvingInsuranceStateGame = do
-  stdGen <- genStdGen
-  nextPlayerId <- Gen.int (Range.linear 0 1000)
-  gameContext <- genGameContext
-  let game = Game stdGen nextPlayerId (ResolvingInsuranceState gameContext)
-  pure game
+genResolvingInsuranceStateGame =
+  Game
+    <$> genStdGen
+    <*> genNextPlayerId
+    <*> fmap ResolvingInsuranceState genGameContext
 
 genOpeningTurnStateGame :: Gen (Game OpeningTurn)
-genOpeningTurnStateGame = do
-  stdGen <- genStdGen
-  nextPlayerId <- Gen.int (Range.linear 0 1000)
-  gameContext@(GameContext _ rounds _) <- genGameContext
-  let pids = Map.keysSet rounds
-  payouts <- Gen.map (Range.linear 0 10) (liftA2 (,) (Gen.element pids) genInsurancePayout)
-  readyPlayers <- Gen.subset pids
-  let insuranceContext = InsuranceContext gameContext payouts
-  let openingContext = OpeningContext insuranceContext readyPlayers
-  let game = Game stdGen nextPlayerId (OpeningTurnState openingContext)
-  pure game
+genOpeningTurnStateGame =
+  Game
+    <$> genStdGen
+    <*> genNextPlayerId
+    <*> fmap OpeningTurnState genOpeningContext
 
 genPlayerTurnStateGame :: Gen (Game PlayerTurn)
-genPlayerTurnStateGame = do
-  stdGen <- genStdGen
-  nextPlayerId <- Gen.int (Range.linear 0 1000)
-  gameContext@(GameContext _ rounds _) <- genGameContext
-  let pids = Map.keysSet rounds
-  payouts <- Gen.map (Range.linear 0 10) (liftA2 (,) (Gen.element pids) genInsurancePayout)
-  let context = InsuranceContext gameContext payouts
-  let game = Game stdGen nextPlayerId (PlayerTurnState context)
-  pure game
+genPlayerTurnStateGame =
+  Game
+    <$> genStdGen
+    <*> genNextPlayerId
+    <*> fmap PlayerTurnState genInsuranceContext
+
+genDealerTurnStateGame :: Gen (Game DealerTurn)
+genDealerTurnStateGame =
+  Game
+    <$> genStdGen
+    <*> genNextPlayerId
+    <*> fmap DealerTurnState genInsuranceContext
+
+genResolutionGameState :: Gen (Game ResolvingHands)
+genResolutionGameState =
+  Game
+    <$> genStdGen
+    <*> genNextPlayerId
+    <*> fmap ResolvingState genResolutionContext
 
 genResultStateGame :: Gen (Game Result)
 genResultStateGame = do
   Game
     <$> genStdGen
-    <*> Gen.int (Range.linear 0 1000)
+    <*> genNextPlayerId
     <*> fmap ResultState genPlayerMap
 
 data SomeGame = forall p. SomeGame (Game p)
@@ -197,9 +227,7 @@ genGame =
       fmap SomeGame genResolvingInsuranceStateGame,
       fmap SomeGame genOpeningTurnStateGame,
       fmap SomeGame genPlayerTurnStateGame,
+      fmap SomeGame genDealerTurnStateGame,
+      fmap SomeGame genResolutionGameState,
       fmap SomeGame genResultStateGame
     ]
-
--- genSomePlayerTurnState :: Gen SomeGame
--- genSomePlayerTurnState =
---   Gen.choice [fmap SomeGame genOpeningTurnStateGame, fmap SomeGame genPlayerTurnStateGame]
