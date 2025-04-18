@@ -178,6 +178,13 @@ genPlayerTurnStateGame = do
   let game = Game stdGen nextPlayerId (PlayerTurnState context)
   pure game
 
+genResultStateGame :: Gen (Game Result)
+genResultStateGame = do
+  Game
+    <$> genStdGen
+    <*> Gen.int (Range.linear 0 1000)
+    <*> fmap ResultState genPlayerMap
+
 data SomeGame = forall p. SomeGame (Game p)
 
 genGame :: Gen SomeGame
@@ -189,7 +196,8 @@ genGame =
       fmap SomeGame genOfferingInsuranceStateGame,
       fmap SomeGame genResolvingInsuranceStateGame,
       fmap SomeGame genOpeningTurnStateGame,
-      fmap SomeGame genPlayerTurnStateGame
+      fmap SomeGame genPlayerTurnStateGame,
+      fmap SomeGame genResultStateGame
     ]
 
 -- genSomePlayerTurnState :: Gen SomeGame
