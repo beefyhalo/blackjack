@@ -7,9 +7,7 @@ module Game.Test.DealerTurn (tests) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Either (isLeft)
-import Data.Map.Strict qualified as Map
 import Domain
-import Game.Betting (decideBetting, evolveBetting)
 import Game.DealerTurn (decideDealerPlay, evolveDealerTurn)
 import Game.Gen
 import GameTopology (Game (Game, state), GameContext (..), GameState (..), InsuranceContext (..), ResolutionContext (..))
