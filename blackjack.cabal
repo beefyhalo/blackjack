@@ -85,6 +85,7 @@ test-suite blackjack-test
       Game.DomainSpec
       Game.Gen
       Game.Test.Betting
+      Game.Test.DealerTurn
       Game.Test.Dealing
       Game.Test.Insurance
       Game.Test.Lobby

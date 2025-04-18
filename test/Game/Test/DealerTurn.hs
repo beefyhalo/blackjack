@@ -3,7 +3,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Game.Test.Resolution (tests) where
+module Game.Test.DealerTurn (tests) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
@@ -17,7 +17,7 @@ import Hedgehog.Gen qualified as Gen
 tests :: IO Bool
 tests = checkParallel $$discover
 
-prop_decide_emits_RoundResolved :: Property
-prop_decide_emits_RoundResolved = property do
-  game <- forAll genResolutionStateGame
+prop_decide_emits_DealerPlayed :: Property
+prop_decide_emits_DealerPlayed = property do
+  game <- forAll genDealerTurnStateGame
   success

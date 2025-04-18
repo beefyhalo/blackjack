@@ -201,8 +201,8 @@ genDealerTurnStateGame =
     <*> genNextPlayerId
     <*> fmap DealerTurnState genInsuranceContext
 
-genResolutionGameState :: Gen (Game ResolvingHands)
-genResolutionGameState =
+genResolutionStateGame :: Gen (Game ResolvingHands)
+genResolutionStateGame =
   Game
     <$> genStdGen
     <*> genNextPlayerId
@@ -228,6 +228,6 @@ genGame =
       fmap SomeGame genOpeningTurnStateGame,
       fmap SomeGame genPlayerTurnStateGame,
       fmap SomeGame genDealerTurnStateGame,
-      fmap SomeGame genResolutionGameState,
+      fmap SomeGame genResolutionStateGame,
       fmap SomeGame genResultStateGame
     ]
