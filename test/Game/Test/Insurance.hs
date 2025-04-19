@@ -1,6 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -26,11 +27,10 @@ prop_decide_take_insurance_emits_PlayerTookInsurance :: Property
 prop_decide_take_insurance_emits_PlayerTookInsurance = property do
   game@Game {state = OfferingInsuranceState context@GameContext {rounds}} <- forAll genOfferingInsuranceStateGame
   (pid, round) <- forAll $ Gen.element (Map.toList rounds)
-  let PlayerRound {player = Player {stack = PlayerStack {chips}}} = round
-      round' = round {insurance = Nothing}
+  let round' = round {insurance = Nothing}
       rounds' = Map.insert pid round' rounds
       game' = game {state = OfferingInsuranceState context {rounds = rounds'}}
-  bet <- forAll $ genBet chips
+  bet <- forAll $ genBet round.player.stack.chips
   decideInsurance game' (TakeInsurance pid bet) === Right (PlayerTookInsurance pid bet)
 
 -- rejects when player already insured
@@ -39,11 +39,10 @@ prop_decide_take_insurance_rejects_already_insured = property do
   game@Game {state = OfferingInsuranceState context@GameContext {rounds}} <- forAll genOfferingInsuranceStateGame
   insuranceChoice <- forAll genInsuranceChoice
   (pid, round) <- forAll $ Gen.element (Map.toList rounds)
-  let PlayerRound {player = Player {stack = PlayerStack {chips}}} = round
-      round' = round {insurance = Just insuranceChoice}
+  let round' = round {insurance = Just insuranceChoice}
       rounds' = Map.insert pid round' rounds
       game' = game {state = OfferingInsuranceState context {rounds = rounds'}}
-  bet <- forAll $ genBet chips
+  bet <- forAll $ genBet round.player.stack.chips
   decideInsurance game' (TakeInsurance pid bet) === Left PlayerAlreadyInsured
 
 -- rejects when the sidebet is malsized
@@ -126,7 +125,7 @@ prop_evolve_InsuranceResolved = property do
             let round' = rounds Map.! pid
              in if payouts Map.! pid == NoInsurance
                   then success
-                  else stack (player round) /== stack (player round')
+                  else round.player.stack /== round'.player.stack
       Map.size rounds === Map.size rounds'
       void $ Map.traverseWithKey checkStack rounds'
       assert (null readyPlayers)

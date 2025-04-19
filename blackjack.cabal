@@ -36,6 +36,7 @@ library
       Game.PlayerTurn
       Game.Resolution
       Game.Result
+      Game.UI
       GameTopology
       Policy
       Projection

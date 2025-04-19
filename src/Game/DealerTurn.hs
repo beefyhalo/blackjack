@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Game.DealerTurn (decideDealerPlay, evolveDealerTurn) where
 
@@ -9,16 +10,16 @@ import Domain
 import GameTopology
 
 decideDealerPlay :: Game phase -> DealerTurnCommand -> Either GameError DealerTurnEvent
-decideDealerPlay Game {state = DealerTurnState InsuranceContext {context = GameContext {deck, dealer}}} = \case
+decideDealerPlay Game {state = DealerTurnState InsuranceContext {context}} = \case
   DealerPlay ->
-    let dealer' = dealerPlay dealer deck
+    let dealer' = dealerPlay context.dealer context.deck
      in Right (DealerPlayed dealer')
   where
     dealerPlay :: Dealer -> Deck -> Dealer
-    dealerPlay dealer0@(Dealer hand) deck0
-      | not (dealerShouldHit dealer0) = dealer0
-      | otherwise = case drawCard deck0 of
-          Nothing -> dealer0
+    dealerPlay dealer@(Dealer hand) deck
+      | not (dealerShouldHit dealer) = dealer
+      | otherwise = case drawCard deck of
+          Nothing -> dealer
           Just (card, newDeck) -> dealerPlay (Dealer (addCard card hand)) newDeck
 decideDealerPlay Game {state = PlayerTurnState {}} = \_ -> Left PlayersStillPlaying
 decideDealerPlay _ = \_ -> Left BadCommand

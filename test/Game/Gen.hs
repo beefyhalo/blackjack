@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Game.Gen (module Game.Gen) where
 
@@ -170,7 +171,7 @@ genInsuranceContext = do
 genOpeningContext :: Gen OpeningContext
 genOpeningContext = do
   insuranceContext <- genInsuranceContext
-  readyPlayers <- Gen.subset (Map.keysSet (rounds (context insuranceContext)))
+  readyPlayers <- Gen.subset (Map.keysSet insuranceContext.context.rounds)
   pure (OpeningContext insuranceContext readyPlayers)
 
 genResolutionContext :: Gen ResolutionContext

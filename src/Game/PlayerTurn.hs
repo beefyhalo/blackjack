@@ -3,6 +3,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Game.PlayerTurn (decidePlayerTurn, evolveOpeningTurn, evolvePlayerTurn) where
 
@@ -48,9 +49,9 @@ decideDoubleDown pid Game {state = OpeningTurnState OpeningContext {readyPlayers
   | Set.member pid readyPlayers = Left PlayerAlreadyActed
 decideDoubleDown pid Game {state = OpeningTurnState OpeningContext {insuranceContext}} =
   let InsuranceContext {context = GameContext {deck, rounds}} = insuranceContext
-   in withPlayerRound pid rounds \PlayerRound {hands, player = Player {stack = PlayerStack {chips}}} ->
+   in withPlayerRound pid rounds \PlayerRound {hands, player} ->
         let currentBet = bet (Z.current hands)
-         in withValidBet (currentBet * 2) chips \_ -> case drawCard deck of
+         in withValidBet (currentBet * 2) player.stack.chips \_ -> case drawCard deck of
               Just (card, _) -> Right (PlayerDoubledDown pid card)
               Nothing -> Left EmptyDeck
 decideDoubleDown _ _ = Left BadCommand

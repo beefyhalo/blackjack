@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Game.Betting (decideBetting, evolveBetting) where
 
@@ -23,7 +24,7 @@ decideBetting _ = \_ -> Left BadCommand
 evolveBetting :: Game AwaitingBets -> BettingEvent -> EvolutionResult GameTopology Game AwaitingBets output
 evolveBetting game@Game {stdGen, state = BettingState players} = \case
   BetPlaced pid bet ->
-    let updateBet player = player {stack = (stack player) {currentBet = bet}}
+    let updateBet player = player {stack = player.stack {currentBet = bet}}
         players' = Map.adjust updateBet pid players
         allBetsIn = all ((> 0) . currentBet . stack) players'
      in if allBetsIn

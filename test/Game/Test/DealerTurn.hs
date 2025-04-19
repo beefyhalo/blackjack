@@ -1,6 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Game.Test.DealerTurn (tests) where
@@ -19,11 +20,11 @@ tests = checkParallel $$discover
 
 prop_decideDealerPlay_plays_until_stand :: Property
 prop_decideDealerPlay_plays_until_stand = property do
-  game@Game {state = DealerTurnState InsuranceContext {context = GameContext {dealer}}} <- forAll genDealerTurnStateGame
+  game@Game {state = DealerTurnState InsuranceContext {context}} <- forAll genDealerTurnStateGame
   case decideDealerPlay game DealerPlay of
     Right (DealerPlayed dealer') -> do
       assert . not $ dealerShouldHit dealer'
-      diff (handSize (dealerHand dealer)) (<=) (handSize (dealerHand dealer'))
+      diff (handSize context.dealer.dealerHand) (<=) (handSize dealer'.dealerHand)
     _ -> failure
 
 prop_decideDealerPlay_no_draw_if_standing :: Property
