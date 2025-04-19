@@ -11,7 +11,7 @@ import Data.Map.Strict qualified as Map
 import Domain
 import Game.Gen
 import Game.Lobby (decideLobby, evolveLobby)
-import GameTopology (Game (Game, state), GameState (BettingState, LobbyState))
+import GameTopology (SomeGame(SomeGame), Game (Game, state), GameState (BettingState, LobbyState))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 

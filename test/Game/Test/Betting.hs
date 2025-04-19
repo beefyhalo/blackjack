@@ -10,7 +10,7 @@ import Data.Map.Strict qualified as Map
 import Domain
 import Game.Betting (decideBetting, evolveBetting)
 import Game.Gen
-import GameTopology (Game (Game, state), GameState (BettingState, DealingState))
+import GameTopology (Game (Game, state), GameState (BettingState, DealingState), SomeGame (SomeGame))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 

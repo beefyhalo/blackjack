@@ -50,6 +50,8 @@ $( singletons
 
 deriving via AllVertices GamePhase instance RenderableVertices GamePhase
 
+data SomeGame = forall p. SomeGame (Game p)
+
 data Game (phase :: GamePhase) = Game
   { stdGen :: StdGen,
     nextPlayerId :: Int,

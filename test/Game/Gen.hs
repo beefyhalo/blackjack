@@ -251,8 +251,6 @@ genResultStateGame = do
     <*> genNextPlayerId
     <*> fmap ResultState genPlayerMap
 
-data SomeGame = forall p. SomeGame (Game p)
-
 genGame :: Gen SomeGame
 genGame =
   Gen.choice

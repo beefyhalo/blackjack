@@ -60,6 +60,7 @@ library
     , random
     , singletons-base
     , text
+    , threepenny-gui
     , vector
   default-language: GHC2021
 

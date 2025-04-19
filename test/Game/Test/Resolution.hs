@@ -11,7 +11,7 @@ import Data.Map.Strict qualified as Map
 import Domain
 import Game.Gen
 import Game.Resolution (decideResolution, evolveResolution)
-import GameTopology (Game (Game, state), GameState (ResolvingState, ResultState), ResolutionContext (..))
+import GameTopology (SomeGame(SomeGame), Game (Game, state), GameState (ResolvingState, ResultState), ResolutionContext (..))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Prelude hiding (round)

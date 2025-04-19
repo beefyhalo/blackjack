@@ -14,7 +14,7 @@ import Data.Maybe (isJust)
 import Domain
 import Game.Gen
 import Game.Insurance (decideInsurance, evolveOfferingInsurance, evolveResolvingInsurance)
-import GameTopology (Game (Game, state), GameContext (..), GameState (..), InsuranceContext (..), OpeningContext (..), ResolutionContext (..))
+import GameTopology (Game (Game, state), GameContext (..), GameState (..), InsuranceContext (..), OpeningContext (..), ResolutionContext (..), SomeGame (SomeGame))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Prelude hiding (round)

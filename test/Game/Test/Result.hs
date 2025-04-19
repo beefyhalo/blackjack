@@ -9,7 +9,7 @@ import Crem.Decider (EvolutionResult (EvolutionResult))
 import Domain
 import Game.Gen
 import Game.Result (decideResult, evolveResult)
-import GameTopology (Game (Game, state), GameState (..))
+import GameTopology (SomeGame(SomeGame), Game (Game, state), GameState (..))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 

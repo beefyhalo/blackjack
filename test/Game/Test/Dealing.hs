@@ -12,7 +12,7 @@ import Data.Traversable (for)
 import Domain
 import Game.Dealing (decideDealing, evolveDealing)
 import Game.Gen
-import GameTopology (Game (Game, state), GameContext (GameContext), GameState (..), InsuranceContext (..), OpeningContext (..))
+import GameTopology (Game (Game, state), GameContext (GameContext), GameState (..), InsuranceContext (..), OpeningContext (..), SomeGame (SomeGame))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 

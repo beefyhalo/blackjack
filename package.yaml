@@ -50,6 +50,7 @@ library:
   - profunctors
   - nonempty-zipper
   - text
+  - threepenny-gui
 
 executables:
   blackjack-exe:

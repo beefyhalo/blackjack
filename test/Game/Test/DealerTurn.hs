@@ -11,7 +11,7 @@ import Data.Either (isLeft)
 import Domain
 import Game.DealerTurn (decideDealerPlay, evolveDealerTurn)
 import Game.Gen
-import GameTopology (Game (Game, state), GameContext (..), GameState (..), InsuranceContext (..), ResolutionContext (..))
+import GameTopology (Game (Game, state), GameContext (..), GameState (..), InsuranceContext (..), ResolutionContext (..), SomeGame (SomeGame))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 
