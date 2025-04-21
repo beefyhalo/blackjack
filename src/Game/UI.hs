@@ -11,22 +11,19 @@
 
 module Game.UI where
 
-import Control.Applicative ((<*))
-import Control.Monad (void)
+import Control.Monad (join, void)
 import Control.Monad.Identity (Identity (..))
 import Crem.BaseMachine (runBaseMachineT)
-import Data.Foldable (for_, traverse_)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (maybeToList)
 import Data.Text qualified as Text
-import Data.Traversable (for)
-import Debug.Trace (traceShow, traceShowM)
+import Debug.Trace (traceShow)
 import Domain
 import Game (baseMachine)
-import GameTopology (Decision, GamePhase (AwaitingBets, DealingCards, InLobby))
+import GameTopology (Decision)
 import Graphics.UI.Threepenny qualified as UI
 import Graphics.UI.Threepenny.Core
-import System.Random (StdGen, initStdGen)
+import System.Random (initStdGen)
 import Text.Read (readMaybe)
 
 data Model = Model
@@ -113,8 +110,8 @@ viewTable :: Behavior Model -> UI Element
 viewTable bModel = do
   let bTable = table <$> bModel
 
-  dealerDiv <- UI.div #+ [renderDealer =<< currentValue bTable]
-  playerDiv <- UI.div # sink children (_)
+  dealerDiv <- UI.div # sink items (fmap renderDealer bTable)
+  playerDiv <- UI.div # sink items (fmap renderPlayers bTable)
 
   UI.div
     #+ [ UI.h3 # set text "Dealer",
@@ -127,15 +124,24 @@ renderCard :: Card -> UI Element
 renderCard Card {..} =
   UI.span # set text (show rank ++ " of " ++ show suit) # set style [("margin", "0 5px")]
 
+renderHand :: Hand -> [UI Element]
+renderHand (Hand cards) =
+  [UI.span #+ map renderCard cards]
+
 renderPlayer :: (PlayerId, Hand) -> UI Element
-renderPlayer (PlayerId pid, Hand cards) = do
-  cardElems <- mapM renderCard cards
-  UI.div #+ [UI.string ("Player " ++ show pid ++ ": "), UI.span #+ cardElems]
+renderPlayer (PlayerId pid, hand) = do
+  cardElems <- sequence $ renderHand hand
+  UI.div #+ [UI.string ("Player " ++ show pid ++ ": "), UI.span # set children cardElems]
 
-renderDealer :: TableView -> UI Element
+renderPlayers :: TableView -> [UI Element]
+renderPlayers TableView {..} = do
+  fmap renderPlayer (Map.toList playerHands)
+
+renderDealer :: TableView -> [UI Element]
 renderDealer TableView {..} =
-  UI.span #+ map renderCard dealer.dealerHand
+  let hands = maybeToList $ fmap dealerHand dealer
+   in join $ traverse renderHand hands
 
-renderPlayers :: TableView -> UI [Element]
-renderPlayers TableView {..} =
-  traverse renderPlayer (Map.toList playerHands)
+items :: WriteAttr Element [UI Element]
+items = mkWriteAttr $ \i x -> void $ do
+  pure x # set children [] #+ map (\j -> UI.span #+ [j]) i
