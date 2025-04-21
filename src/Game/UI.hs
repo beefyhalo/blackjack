@@ -13,6 +13,7 @@ module Game.UI where
 
 import Control.Monad (join, void)
 import Control.Monad.Identity (Identity (..))
+import Control.Monad.Writer (MonadTrans (lift), WriterT (runWriterT), tell)
 import Crem.BaseMachine (runBaseMachineT)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (maybeToList)
@@ -47,7 +48,8 @@ setupGui :: Window -> UI ()
 setupGui window = mdo
   pure window # set title "Blackjack"
 
-  (ui, eCommand) <- view model
+  (ui, eCommands) <- runWriterT (view model)
+  let eCommand = fmap head (unions eCommands)
   eDecision <- do
     let run x y = runIdentity (runBaseMachineT y x)
     rng <- initStdGen
@@ -63,23 +65,22 @@ update msg model = traceShow ("update", msg, model) $ case msg of
     model {table = TableView (Map.fromList ps) (Just dealer)}
   _ -> model
 
-view :: Behavior Model -> UI (Element, UI.Event Command)
+view :: Behavior Model -> WriterT [UI.Event Command] UI Element
 view bModel = do
-  (controlPanel, eCmd) <- viewControlPanel bModel
+  controlPanel <- viewControlPanel bModel
   tableView <- viewTable bModel
 
-  root <- UI.div #+ [element controlPanel, UI.hr, element tableView]
-  pure (root, eCmd)
+  lift $ UI.div #+ [element controlPanel, UI.hr, element tableView]
 
-viewControlPanel :: Behavior Model -> UI (Element, UI.Event Command)
+viewControlPanel :: Behavior Model -> WriterT [UI.Event Command] UI Element
 viewControlPanel bModel = do
-  txtName <- UI.input # set (attr "placeholder") "Enter name"
-  btnJoin <- UI.button # set text "Join Game"
-  btnLeave <- UI.button # set text "Leave Game"
-  btnStart <- UI.button # set text "Start Game"
-  txtBet <- UI.input # set (attr "type") "number" # set (attr "placeholder") "Bet amount"
-  btnBet <- UI.button # set text "Place Bet"
-  btnDeal <- UI.button # set text "Deal"
+  txtName <- lift $ UI.input # set (attr "placeholder") "Enter name"
+  btnJoin <- lift $ UI.button # set text "Join Game"
+  btnLeave <- lift $ UI.button # set text "Leave Game"
+  btnStart <- lift $ UI.button # set text "Start Game"
+  txtBet <- lift $ UI.input # set (attr "type") "number" # set (attr "placeholder") "Bet amount"
+  btnBet <- lift $ UI.button # set text "Place Bet"
+  btnDeal <- lift $ UI.button # set text "Deal"
 
   nameIn <- stepper "" $ UI.valueChange txtName
   betIn <- stepper (Bet 0) $ maybe 0 Bet . readMaybe <$> UI.valueChange txtBet
@@ -88,9 +89,10 @@ viewControlPanel bModel = do
       evStart = LobbyCmd StartGame <$ UI.click btnStart
       evBet = BettingCmd . PlaceBet (PlayerId 0) <$> betIn <@ UI.click btnBet
       evDeal = DealingCmd DealInitialCards <$ UI.click btnDeal
-      allEvents = unions [evJoin, evLeave, evStart, evBet, evDeal]
 
-  root <-
+  tell [evJoin, evLeave, evStart, evBet, evDeal]
+
+  lift $
     UI.div
       #+ [ UI.string "Lobby:",
            element txtName,
@@ -104,10 +106,8 @@ viewControlPanel bModel = do
            element btnDeal
          ]
 
-  pure (root, fmap head allEvents)
-
-viewTable :: Behavior Model -> UI Element
-viewTable bModel = do
+viewTable :: Behavior Model -> WriterT [UI.Event Command] UI Element
+viewTable bModel = lift do
   let bTable = table <$> bModel
 
   dealerDiv <- UI.div # sink items (fmap renderDealer bTable)
