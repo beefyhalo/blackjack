@@ -11,9 +11,12 @@
 
 module Game.UI where
 
+import Control.Applicative ((<*))
+import Control.Monad (void)
 import Control.Monad.Identity (Identity (..))
 import Crem.BaseMachine (runBaseMachineT)
 import Data.Foldable (for_, traverse_)
+import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Text qualified as Text
 import Data.Traversable (for)
@@ -26,131 +29,113 @@ import Graphics.UI.Threepenny.Core
 import System.Random (StdGen, initStdGen)
 import Text.Read (readMaybe)
 
-data GameView = GameView
-  { i :: Int,
-    phase :: GamePhase,
-    currentPlayer :: Maybe PlayerId
+data Model = Model
+  { table :: TableView
   }
   deriving (Show)
 
-baseView :: GameView
-baseView = GameView 0 InLobby Nothing
-
-data Layout = Layout
-  { controlPanel :: ControlPanel,
-    tableBox :: Element
+data TableView = TableView
+  { playerHands :: Map.Map PlayerId Hand,
+    dealer :: Maybe Dealer
   }
+  deriving (Show)
 
-newLayout :: UI Layout
-newLayout =
-  Layout
-    <$> newControlPanel
-    <*> UI.div
-
-data ControlPanel = ControlPanel
-  { nameInput :: Element,
-    joinButton :: Element,
-    leaveButton :: Element,
-    startButton :: Element,
-    dealButton :: Element,
-    betInput :: Element,
-    betButton :: Element,
-    container :: Element
-  }
-
-newControlPanel :: UI ControlPanel
-newControlPanel = do
-  nameInput <- UI.input # set UI.text "Enter player name"
-  joinBtn <- UI.button # set UI.text "Join Game"
-  leaveBtn <- UI.button # set UI.text "Leave Game"
-  startBtn <- UI.button # set UI.text "Start Game"
-  dealBtn <- UI.button # set UI.text "Deal Cards"
-  betInput <- UI.input # set (UI.attr "type") "number" # set (UI.attr "placeholder") "Bet amount"
-  betBtn <- UI.button # set UI.text "Place Bet"
-  container <-
-    UI.div
-      #. "control-panel"
-      #+ map
-        element
-        [ nameInput,
-          joinBtn,
-          leaveBtn,
-          startBtn,
-          betInput,
-          betBtn,
-          dealBtn
-        ]
-
-  pure $ ControlPanel nameInput joinBtn leaveBtn startBtn dealBtn betInput betBtn container
-
-updateGameView :: Decision -> GameView -> GameView
-updateGameView (Right (LobbyEvt (PlayerJoined pid _))) g = g {currentPlayer = Just pid}
-updateGameView (Right (LobbyEvt GameStarted)) (GameView i x u) = traceShow ("Woo!", x) (GameView (i + 1) AwaitingBets u)
-updateGameView d (GameView i x y) = traceShow ("UPDATE GAME VIEWWWWWWW", d, x) (GameView (i + 1) x y)
+initialModel :: Model
+initialModel = Model (TableView Map.empty Nothing)
 
 main :: IO ()
-main = do
-  stdGen <- initStdGen
-  startGUI defaultConfig (setup stdGen)
+main = startGUI defaultConfig setupGui
 
-setup :: StdGen -> Window -> UI ()
-setup rng window = mdo
-  -- Setup layout
-  return window # set title "Blackjack"
-  body <- getBody window
-  layout <- newLayout
-  element body #+ fmap element [layout.controlPanel.container]
+setupGui :: Window -> UI ()
+setupGui window = mdo
+  pure window # set title "Blackjack"
 
-  -- Game behavior setup
-  (behaviorView, fireCommand) <- liftIO do
-    (eCmd, fireCmd) <- newEvent
-    (eDecision, _) <- mapAccum (baseMachine rng) (fmap (\x y -> runIdentity $ runBaseMachineT y x) eCmd)
-    bView <- accumB baseView (fmap updateGameView eDecision)
-    pure (bView, fireCmd)
+  (ui, eCommand) <- view model
+  eDecision <- do
+    let run x y = runIdentity (runBaseMachineT y x)
+    rng <- initStdGen
+    (result, _) <- mapAccum (baseMachine rng) (fmap run eCommand)
+    pure result
+  model <- accumB initialModel (fmap update eDecision)
 
-  -- wire up reactive network
-  wireUI layout behaviorView fireCommand
+  void $ getBody window #+ [element ui]
 
-  pure ()
+update :: Decision -> Model -> Model
+update msg model = traceShow ("update", msg, model) $ case msg of
+  Right (DealingEvt (CardsDealt ps dealer)) ->
+    model {table = TableView (Map.fromList ps) (Just dealer)}
+  _ -> model
 
-wireUI :: Layout -> Behavior GameView -> Handler Command -> UI ()
-wireUI layout view fireCommand = do
-  wireControl layout.controlPanel view fireCommand
+view :: Behavior Model -> UI (Element, UI.Event Command)
+view bModel = do
+  (controlPanel, eCmd) <- viewControlPanel bModel
+  tableView <- viewTable bModel
 
-wireControl :: ControlPanel -> Behavior GameView -> Handler Command -> UI ()
-wireControl ControlPanel {..} view fire = do
-  -- Extract phase behavior
-  let bPhase = fmap phase view
+  root <- UI.div #+ [element controlPanel, UI.hr, element tableView]
+  pure (root, eCmd)
 
-  on UI.click joinButton \_ -> do
-    name <- get UI.value nameInput
-    liftIO $ fire (LobbyCmd (JoinGame (Text.pack name)))
-  on UI.click leaveButton \_ -> do
-    _pid <- currentValue view
-    liftIO $ fire (LobbyCmd (LeaveGame (PlayerId 0)))
-  on UI.click startButton \_ ->
-    liftIO $ fire (LobbyCmd StartGame)
-  on UI.click betButton \_ -> do
-    v <- get UI.value betInput
-    case readMaybe v of
-      Just n | n > 0 -> liftIO do
-        pidMay <- fmap currentPlayer (currentValue view)
-        for_ pidMay \pid -> fire (BettingCmd (PlaceBet pid (Bet n)))
-      _ -> return () -- optionally show an error later
-  on UI.click dealButton \_ -> liftIO $ fire (DealingCmd DealInitialCards)
+viewControlPanel :: Behavior Model -> UI (Element, UI.Event Command)
+viewControlPanel bModel = do
+  txtName <- UI.input # set (attr "placeholder") "Enter name"
+  btnJoin <- UI.button # set text "Join Game"
+  btnLeave <- UI.button # set text "Leave Game"
+  btnStart <- UI.button # set text "Start Game"
+  txtBet <- UI.input # set (attr "type") "number" # set (attr "placeholder") "Bet amount"
+  btnBet <- UI.button # set text "Place Bet"
+  btnDeal <- UI.button # set text "Deal"
 
-  -- Enable controls only in certain phases
-  element joinButton # sink UI.enabled (isPhase InLobby <$> bPhase)
-  element leaveButton # sink UI.enabled (isPhase InLobby <$> bPhase)
-  element startButton # sink UI.enabled (isPhase InLobby <$> bPhase)
-  element nameInput # sink UI.enabled (isPhase InLobby <$> bPhase)
+  nameIn <- stepper "" $ UI.valueChange txtName
+  betIn <- stepper (Bet 0) $ maybe 0 Bet . readMaybe <$> UI.valueChange txtBet
+  let evJoin = LobbyCmd . JoinGame . Text.pack <$> nameIn <@ UI.click btnJoin
+      evLeave = LobbyCmd (LeaveGame (PlayerId 0)) <$ UI.click btnLeave
+      evStart = LobbyCmd StartGame <$ UI.click btnStart
+      evBet = BettingCmd . PlaceBet (PlayerId 0) <$> betIn <@ UI.click btnBet
+      evDeal = DealingCmd DealInitialCards <$ UI.click btnDeal
+      allEvents = unions [evJoin, evLeave, evStart, evBet, evDeal]
 
-  element betInput # sink UI.enabled (isPhase AwaitingBets <$> bPhase)
-  element betButton # sink UI.enabled (isPhase AwaitingBets <$> bPhase)
+  root <-
+    UI.div
+      #+ [ UI.string "Lobby:",
+           element txtName,
+           element btnJoin,
+           element btnLeave,
+           element btnStart,
+           UI.hr,
+           UI.string "Betting:",
+           element txtBet,
+           element btnBet,
+           element btnDeal
+         ]
 
-  element dealButton # sink UI.enabled (isPhase DealingCards <$> bPhase)
+  pure (root, fmap head allEvents)
 
-  pure ()
+viewTable :: Behavior Model -> UI Element
+viewTable bModel = do
+  let bTable = table <$> bModel
 
-isPhase :: GamePhase -> GamePhase -> Bool
-isPhase expected actual = expected == actual
+  dealerDiv <- UI.div #+ [renderDealer =<< currentValue bTable]
+  playerDiv <- UI.div # sink children (_)
+
+  UI.div
+    #+ [ UI.h3 # set text "Dealer",
+         element dealerDiv,
+         UI.h3 # set text "Players",
+         element playerDiv
+       ]
+
+renderCard :: Card -> UI Element
+renderCard Card {..} =
+  UI.span # set text (show rank ++ " of " ++ show suit) # set style [("margin", "0 5px")]
+
+renderPlayer :: (PlayerId, Hand) -> UI Element
+renderPlayer (PlayerId pid, Hand cards) = do
+  cardElems <- mapM renderCard cards
+  UI.div #+ [UI.string ("Player " ++ show pid ++ ": "), UI.span #+ cardElems]
+
+renderDealer :: TableView -> UI Element
+renderDealer TableView {..} =
+  UI.span #+ map renderCard dealer.dealerHand
+
+renderPlayers :: TableView -> UI [Element]
+renderPlayers TableView {..} =
+  traverse renderPlayer (Map.toList playerHands)

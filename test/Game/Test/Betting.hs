@@ -1,6 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Game.Test.Betting (tests) where
@@ -22,10 +23,9 @@ prop_decide_bet_emits_PlaceBet :: Property
 prop_decide_bet_emits_PlaceBet = property do
   game@Game {state = BettingState players} <- forAll genBettingStateGame
   (pid, player) <- forAll $ Gen.element (Map.toList players)
-  let Player {stack = PlayerStack {chips}} = player
-      player' = player {stack = PlayerStack 0 chips}
+  let player' = player {stack = player.stack {currentBet = 0}}
       game' = game {state = BettingState (Map.insert pid player' players)}
-  bet <- forAll $ genBet chips
+  bet <- forAll $ genBet player.stack.chips
   decideBetting game' (PlaceBet pid bet) === Right (BetPlaced pid bet)
 
 -- decide rejects with a MalsizedBet

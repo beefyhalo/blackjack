@@ -15,7 +15,7 @@ import Data.Set qualified as Set
 import Domain
 import Game.Gen
 import Game.PlayerTurn (decidePlayerTurn, evolveOpeningTurn)
-import GameTopology (Game (Game, state), GameContext (..), GamePhase (..), GameState (DealerTurnState, OpeningTurnState, PlayerTurnState, ResolvingState), InsuranceContext (..), OpeningContext (..), SomeGame (SomeGame))
+import GameTopology (Game (Game, state), GameContext (..), GamePhase (..), GameState (DealerTurnState, OpeningTurnState, PlayerTurnState, ResolvingState), InsuranceContext (..), OpeningContext (..))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Prelude hiding (round)
