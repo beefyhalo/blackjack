@@ -36,6 +36,11 @@ library
       Game.Resolution
       Game.Result
       Game.UI
+      Game.UI.Component
+      Game.UI.Model
+      Game.UI.View
+      Game.UI.View.ControlPanel
+      Game.UI.View.Table
       GameTopology
       Policy
       Projection
@@ -61,6 +66,7 @@ library
     , singletons-base
     , text
     , threepenny-gui
+    , transformers
     , vector
   default-language: GHC2021
 
