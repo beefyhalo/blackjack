@@ -1,7 +1,9 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE StrictData #-}
 
-module Domain (module Domain) where
+module Types (module Types) where
 
 import Control.Monad (join)
 import Data.List.NonEmpty (NonEmpty)
@@ -44,12 +46,12 @@ data PlayerRound = PlayerRound
   deriving (Eq, Show)
 
 hasLost :: PlayerRound -> Bool
-hasLost PlayerRound {hands, hasSurrendered} =
-  hasSurrendered || all (isBust . hand) hands
+hasLost round =
+  round.hasSurrendered || all (isBust . hand) round.hands
 
 hasCompletedTurn :: PlayerRound -> Bool
-hasCompletedTurn round@PlayerRound {hands} =
-  hasLost round || all (\h -> hasStood h || hasDoubledDown h) hands
+hasCompletedTurn round =
+  hasLost round || all (\h -> hasStood h || hasDoubledDown h) round.hands
 
 initPlayerRound :: Hand -> Player -> PlayerRound
 initPlayerRound hand player =
@@ -57,8 +59,8 @@ initPlayerRound hand player =
    in PlayerRound player (Z.fromNonEmpty $ pure handState) Nothing False
 
 modifyCurrentHand :: (HandState -> HandState) -> PlayerRound -> PlayerRound
-modifyCurrentHand f round@PlayerRound {hands} =
-  round {hands = Z.replace (f (Z.current hands)) hands}
+modifyCurrentHand f round =
+  round {hands = Z.replace (f (Z.current round.hands)) round.hands}
 
 withPlayerRound ::
   PlayerId ->
@@ -83,7 +85,7 @@ newtype Dealer = Dealer {dealerHand :: Hand}
   deriving (Eq, Show)
 
 visibleCard :: Dealer -> Card
-visibleCard (Dealer (Hand hand)) = head hand -- assuming dealer shows first card
+visibleCard = head . unHand . dealerHand -- assuming dealer shows first card
 
 -- Hit if the dealer has less than 17 points
 dealerShouldHit :: Dealer -> Bool
@@ -235,8 +237,8 @@ data LossReason
   | OutscoredByDealer
   deriving (Eq, Show)
 
-determineOutcome :: PlayerRound -> HandState -> DealerOutcome -> Outcome
-determineOutcome PlayerRound {hasSurrendered} HandState {hand} = \case
+determinePlayerOutcome :: PlayerRound -> HandState -> DealerOutcome -> Outcome
+determinePlayerOutcome PlayerRound {hasSurrendered} HandState {hand} = \case
   DealerBlackjack
     | isBlackjack hand -> Push
     | otherwise -> DealerWins OutscoredByDealer
@@ -343,7 +345,7 @@ dealNTo n (p : ps) deck = do
   (rest, deck'') <- dealNTo n ps deck'
   pure ((p, hand) : rest, deck'')
 
-newtype Hand = Hand [Card]
+newtype Hand = Hand {unHand :: [Card]}
   deriving (Show, Eq)
 
 emptyHand :: Hand

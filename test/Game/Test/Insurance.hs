@@ -11,7 +11,7 @@ import Control.Monad (void)
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
 import Data.Maybe (isJust)
-import Domain
+import Types
 import Game.Gen
 import Game.Insurance (decideInsurance, evolveOfferingInsurance, evolveResolvingInsurance)
 import GameTopology (Game (Game, state), GameContext (..), GameState (..), InsuranceContext (..), OpeningContext (..), ResolutionContext (..), SomeGame (SomeGame))

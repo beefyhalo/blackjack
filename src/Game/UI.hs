@@ -3,10 +3,12 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module Game.UI where
@@ -19,27 +21,47 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (maybeToList)
 import Data.Text qualified as Text
 import Debug.Trace (traceShow)
-import Domain
+import GHC.IsList (IsList (..))
 import Game (baseMachine)
 import GameTopology (Decision)
+import Graphics.UI.Threepenny (addStyleSheet)
 import Graphics.UI.Threepenny qualified as UI
 import Graphics.UI.Threepenny.Core
 import System.Random (initStdGen)
 import Text.Read (readMaybe)
+import Types
 
-data Model = Model
-  { table :: TableView
+newtype Model = Model
+  { table :: TableModel
   }
   deriving (Show)
 
-data TableView = TableView
+data TableModel = TableModel
   { playerHands :: Map.Map PlayerId Hand,
     dealer :: Maybe Dealer
   }
   deriving (Show)
 
 initialModel :: Model
-initialModel = Model (TableView Map.empty Nothing)
+initialModel = Model (TableModel Map.empty Nothing)
+
+newtype EventStream = EventStream {event :: UI.Event Command}
+
+instance IsList EventStream where
+  type Item EventStream = UI.Event Command
+  fromList = EventStream . fmap head . unions
+  toList EventStream {event} = [event]
+
+instance Semigroup EventStream where
+  EventStream e1 <> EventStream e2 = EventStream (unionWith const e1 e2)
+
+instance Monoid EventStream where
+  mempty = EventStream never
+
+type Component = WriterT EventStream UI Element
+
+runComponent :: Component -> UI (Element, EventStream)
+runComponent = runWriterT
 
 main :: IO ()
 main = startGUI defaultConfig setupGui
@@ -47,32 +69,33 @@ main = startGUI defaultConfig setupGui
 setupGui :: Window -> UI ()
 setupGui window = mdo
   pure window # set title "Blackjack"
+  addStyleSheet window "style.css"
+  rng <- initStdGen
+  let initialGame = baseMachine rng
 
-  (ui, eCommands) <- runWriterT (view model)
-  let eCommand = fmap head (unions eCommands)
-  eDecision <- do
-    let run x y = runIdentity (runBaseMachineT y x)
-    rng <- initStdGen
-    (result, _) <- mapAccum (baseMachine rng) (fmap run eCommand)
-    pure result
-  model <- accumB initialModel (fmap update eDecision)
+  -- Reactive Model-Update-View
+  (ui, EventStream commands) <- runComponent (view model)
+  (decisions, _) <- mapAccum initialGame (fmap runGame commands)
+  model <- accumB initialModel (fmap update decisions)
 
   void $ getBody window #+ [element ui]
+  where
+    runGame command game = runIdentity (runBaseMachineT game command)
 
 update :: Decision -> Model -> Model
 update msg model = traceShow ("update", msg, model) $ case msg of
   Right (DealingEvt (CardsDealt ps dealer)) ->
-    model {table = TableView (Map.fromList ps) (Just dealer)}
+    model {table = TableModel (Map.fromList ps) (Just dealer)}
   _ -> model
 
-view :: Behavior Model -> WriterT [UI.Event Command] UI Element
+view :: Behavior Model -> Component
 view bModel = do
   controlPanel <- viewControlPanel bModel
   tableView <- viewTable bModel
 
   lift $ UI.div #+ [element controlPanel, UI.hr, element tableView]
 
-viewControlPanel :: Behavior Model -> WriterT [UI.Event Command] UI Element
+viewControlPanel :: Behavior Model -> Component
 viewControlPanel bModel = do
   txtName <- lift $ UI.input # set (attr "placeholder") "Enter name"
   btnJoin <- lift $ UI.button # set text "Join Game"
@@ -106,7 +129,7 @@ viewControlPanel bModel = do
            element btnDeal
          ]
 
-viewTable :: Behavior Model -> WriterT [UI.Event Command] UI Element
+viewTable :: Behavior Model -> Component
 viewTable bModel = lift do
   let bTable = table <$> bModel
 
@@ -133,12 +156,12 @@ renderPlayer (PlayerId pid, hand) = do
   cardElems <- sequence $ renderHand hand
   UI.div #+ [UI.string ("Player " ++ show pid ++ ": "), UI.span # set children cardElems]
 
-renderPlayers :: TableView -> [UI Element]
-renderPlayers TableView {..} = do
+renderPlayers :: TableModel -> [UI Element]
+renderPlayers TableModel {..} = do
   fmap renderPlayer (Map.toList playerHands)
 
-renderDealer :: TableView -> [UI Element]
-renderDealer TableView {..} =
+renderDealer :: TableModel -> [UI Element]
+renderDealer TableModel {..} =
   let hands = maybeToList $ fmap dealerHand dealer
    in join $ traverse renderHand hands
 

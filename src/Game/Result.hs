@@ -5,7 +5,7 @@
 module Game.Result (decideResult, evolveResult) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
-import Domain
+import Types
 import GameTopology
 
 decideResult :: Game phase -> ResultCommand -> Either GameError ResultEvent

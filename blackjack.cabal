@@ -26,7 +26,6 @@ source-repository head
 library
   exposed-modules:
       Application
-      Domain
       Game
       Game.Betting
       Game.DealerTurn
@@ -40,6 +39,7 @@ library
       GameTopology
       Policy
       Projection
+      Types
   other-modules:
       Paths_blackjack
   autogen-modules:

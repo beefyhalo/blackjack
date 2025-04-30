@@ -6,7 +6,7 @@
 module Game.Test.Result (tests) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
-import Domain
+import Types
 import Game.Gen
 import Game.Result (decideResult, evolveResult)
 import GameTopology (SomeGame(SomeGame), Game (Game, state), GameState (..))

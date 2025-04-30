@@ -5,7 +5,7 @@ module Game (baseMachine, decider) where
 
 import Crem.BaseMachine (BaseMachine, InitialState (..))
 import Crem.Decider (Decider (..), EvolutionResult (EvolutionResult), deciderMachine)
-import Domain
+import Types
 import Game.Betting
 import Game.DealerTurn
 import Game.Dealing

@@ -9,7 +9,7 @@ import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Traversable (for)
-import Domain
+import Types
 import Game.Dealing (decideDealing, evolveDealing)
 import Game.Gen
 import GameTopology (Game (Game, state), GameContext (GameContext), GameState (..), InsuranceContext (..), OpeningContext (..), SomeGame (SomeGame))

@@ -6,8 +6,8 @@ module Game.Lobby (decideLobby, evolveLobby) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
-import Domain
 import GameTopology
+import Types
 
 decideLobby :: Game phase -> LobbyCommand -> Either GameError LobbyEvent
 decideLobby Game {state = LobbyState players, nextPlayerId} = \case
@@ -23,10 +23,10 @@ decideLobby Game {state = LobbyState players, nextPlayerId} = \case
 decideLobby _ = const (Left GameAlreadyStarted)
 
 evolveLobby :: Game InLobby -> LobbyEvent -> EvolutionResult GameTopology Game InLobby output
-evolveLobby game@Game {state = LobbyState players} = \case
+evolveLobby game@Game {state = LobbyState players, nextPlayerId} = \case
   PlayerJoined pid name ->
     let players' = Map.insert pid (newPlayer pid name) players
-     in EvolutionResult game {state = LobbyState players', nextPlayerId = nextPlayerId game + 1}
+     in EvolutionResult game {state = LobbyState players', nextPlayerId = nextPlayerId + 1}
   PlayerLeft pid ->
     let players' = Map.delete pid players
      in EvolutionResult game {state = LobbyState players'}

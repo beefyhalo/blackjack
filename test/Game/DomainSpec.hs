@@ -1,9 +1,9 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Game.DomainSpec (tests) where
+module Game.TypesSpec (tests) where
 
-import Domain
+import Types
 import Game.Gen
 import Hedgehog
 import Hedgehog.Gen qualified as Gen

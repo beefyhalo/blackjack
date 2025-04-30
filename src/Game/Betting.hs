@@ -8,17 +8,17 @@ module Game.Betting (decideBetting, evolveBetting) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
-import Domain
 import GameTopology
+import Types
 
 decideBetting :: Game phase -> BettingCommand -> Either GameError BettingEvent
 decideBetting Game {state = BettingState players} = \case
   PlaceBet pid bet ->
     case Map.lookup pid players of
       Nothing -> Left (PlayerNotFound pid)
-      Just Player {stack = PlayerStack currentBet chips}
-        | currentBet > 0 -> Left (PlayerAlreadyBet pid)
-        | otherwise -> withValidBet bet chips (Right . BetPlaced pid)
+      Just player
+        | player.stack.currentBet > 0 -> Left (PlayerAlreadyBet pid)
+        | otherwise -> withValidBet bet player.stack.chips (Right . BetPlaced pid)
 decideBetting _ = \_ -> Left BadCommand
 
 evolveBetting :: Game AwaitingBets -> BettingEvent -> EvolutionResult GameTopology Game AwaitingBets output

@@ -8,7 +8,7 @@ module Game.Test.Lobby (tests) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
-import Domain
+import Types
 import Game.Gen
 import Game.Lobby (decideLobby, evolveLobby)
 import GameTopology (SomeGame(SomeGame), Game (Game, state), GameState (BettingState, LobbyState))

@@ -8,7 +8,7 @@ module Game.Test.Resolution (tests) where
 import Crem.Decider (EvolutionResult (..))
 import Data.Foldable (for_, toList)
 import Data.Map.Strict qualified as Map
-import Domain
+import Types
 import Game.Gen
 import Game.Resolution (decideResolution, evolveResolution)
 import GameTopology (SomeGame(SomeGame), Game (Game, state), GameState (ResolvingState, ResultState), ResolutionContext (..))

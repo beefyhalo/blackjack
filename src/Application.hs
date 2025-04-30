@@ -5,7 +5,7 @@ import Crem.StateMachine (StateMachine, StateMachineT (..))
 import Data.Foldable (fold)
 import Data.List (singleton)
 import Data.Profunctor (rmap)
-import Domain
+import Types
 import Game (baseMachine)
 import GameTopology (Decision)
 import Policy (insurancePolicy)

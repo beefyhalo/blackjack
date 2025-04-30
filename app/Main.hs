@@ -5,7 +5,7 @@ module Main (main) where
 import Application (whole)
 import Crem.StateMachine (StateMachineT, run)
 import Data.Functor.Identity (Identity (Identity))
-import Domain (Command)
+import Types (Command)
 import System.IO.Error (catchIOError)
 import System.Random (initStdGen)
 

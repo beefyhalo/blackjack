@@ -13,7 +13,7 @@ import Crem.BaseMachine (BaseMachine, BaseMachineT (..), InitialState (InitialSt
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
 import Data.Set qualified as Set
-import Domain
+import Types
 import "singletons-base" Data.Singletons.Base.TH hiding (Sum)
 
 $( singletons

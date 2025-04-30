@@ -2,14 +2,15 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Game.Dealing (decideDealing, evolveDealing) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Domain
 import GameTopology
+import Types
 
 decideDealing :: Game phase -> DealingCommand -> Either GameError DealingEvent
 decideDealing Game {state = DealingState pids deck} = \case
@@ -25,12 +26,16 @@ evolveDealing :: Game DealingCards -> DealingEvent -> EvolutionResult GameTopolo
 evolveDealing game@Game {state = DealingState players deck} = \case
   CardsDealt playerHands dealer
     | isAce (visibleCard dealer) ->
-        EvolutionResult game {state = OfferingInsuranceState (GameContext deck' rounds dealer)}
+        EvolutionResult game {state = OfferingInsuranceState context}
     | otherwise ->
-        let openingContext = OpeningContext (InsuranceContext (GameContext deck' rounds dealer) Map.empty) Set.empty
+        let openingContext = OpeningContext (InsuranceContext context Map.empty) Set.empty
          in EvolutionResult game {state = OpeningTurnState openingContext}
     where
-      rounds = Map.fromList [(pid, initPlayerRound hand (players Map.! pid)) | (pid, hand) <- playerHands]
-      deck' =
-        let cardsDrawn = sum (map (handSize . snd) playerHands) + handSize (dealerHand dealer)
-         in deck {drawn = drawn deck + cardsDrawn}
+      context =
+        let rounds =
+              Map.fromList
+                [(pid, initPlayerRound hand (players Map.! pid)) | (pid, hand) <- playerHands]
+            deck' =
+              let cardsDrawn = sum [handSize hand | (_, hand) <- playerHands] + handSize dealer.dealerHand
+               in deck {drawn = drawn deck + cardsDrawn}
+         in GameContext deck' rounds dealer

@@ -8,7 +8,7 @@ import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text (Text)
-import Domain
+import Types
 import GameTopology
 import Hedgehog
 import Hedgehog.Gen qualified as Gen

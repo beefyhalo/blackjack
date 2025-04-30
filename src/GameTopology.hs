@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE StrictData #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -11,8 +12,8 @@ import Crem.Render.RenderableVertices
 import Crem.Topology
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Domain
 import System.Random (StdGen, split)
+import Types
 import "singletons-base" Data.Singletons.Base.TH
 
 $( singletons

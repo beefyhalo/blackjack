@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Game.DomainSpec qualified as DomainSpec
+import Game.TypesSpec qualified as TypesSpec
 import Game.Test.Betting qualified as BettingSpec
 import Game.Test.DealerTurn qualified as DealerTurnSpec
 import Game.Test.Dealing qualified as DealingSpec
@@ -14,7 +14,7 @@ import Hedgehog.Main (defaultMain)
 main :: IO ()
 main =
   defaultMain
-    [ DomainSpec.tests,
+    [ TypesSpec.tests,
       LobbySpec.tests,
       BettingSpec.tests,
       DealingSpec.tests,

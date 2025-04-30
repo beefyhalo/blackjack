@@ -13,7 +13,7 @@ import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
 import Data.Monoid (Sum)
 import Data.Override (Override (Override))
-import Domain (Chips, Event (ResolutionEvt), ResolutionEvent (RoundResolved))
+import Types (Chips, Event (ResolutionEvt), ResolutionEvent (RoundResolved))
 import GHC.Generics (Generic)
 import "singletons-base" Data.Singletons.Base.TH hiding (Sum)
 
