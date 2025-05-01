@@ -8,7 +8,6 @@ import Control.Monad.Writer.CPS (lift)
 import Data.Char (toLower)
 import Data.Functor (void)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (maybeToList)
 import Game.UI.Component (Component)
 import Game.UI.Model (Model (..), TableModel (..))
 import Graphics.UI.Threepenny qualified as UI
@@ -44,8 +43,9 @@ renderPlayer (PlayerId pid, hand) = do
        ]
 
 renderDealer :: TableModel -> [UI Element]
-renderDealer TableModel {dealer} =
-  renderHand . dealerHand =<< maybeToList dealer
+renderDealer table = case table.dealer of
+  Just dealer -> [renderCardBack, renderCard (visibleCard dealer)]
+  _ -> []
 
 renderHand :: Hand -> [UI Element]
 renderHand (Hand cards) =
@@ -57,6 +57,13 @@ renderCard card =
     #. "card-img"
     # set UI.src ("/static/images/cards/fronts/" ++ cardImageName card ++ ".svg")
     # set UI.alt (show card.rank ++ " of " ++ show card.suit)
+
+renderCardBack :: UI Element
+renderCardBack =
+  UI.img
+    #. "card-img"
+    # set UI.src "/static/images/cards/backs/abstract.svg"
+    # set UI.alt "Face-down card"
 
 cardImageName :: Card -> String
 cardImageName Card {rank, suit} =
