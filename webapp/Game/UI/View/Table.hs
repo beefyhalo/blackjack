@@ -1,46 +1,66 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
 module Game.UI.View.Table (viewTable) where
 
-import Control.Monad.Writer.CPS (lift)
+import Control.Monad.Writer.CPS (lift, tell)
 import Data.Char (toLower)
 import Data.Functor (void)
 import Data.Map.Strict qualified as Map
 import Game.UI.Component (Component)
-import Game.UI.Model (Model (..), TableModel (..))
+import Game.UI.Model (TableModel (..))
 import Graphics.UI.Threepenny qualified as UI
 import Graphics.UI.Threepenny.Core
 import Types
 
-viewTable :: Behavior Model -> Component
-viewTable bModel = lift do
-  let bTable = fmap table bModel
+viewTable :: Behavior TableModel -> Component
+viewTable bTable = do
+  dealerDiv <- lift $ UI.div #. "dealer" # sink items (fmap renderDealer bTable)
 
-  dealerDiv <- UI.div #. "dealer" # sink items (fmap renderDealer bTable)
-  playerDiv <- UI.div #. "players" # sink items (fmap renderPlayers bTable)
+  playerDiv <- lift do
+    -- let playerIds = fmap (Map.keys . playerHands) bTable
+    -- let playerControlElems = fmap renderPlayerControls <$> playerIds
+    UI.div
+      #. "players"
+      #+ [ UI.div # sink items (fmap renderPlayers bTable)
+      --  UI.div #. "player-controls mt-4 d-flex gap-3" # sink items playerControlElems
+         ]
 
-  UI.div
-    #. "table-container container mt-4"
-    #+ [ UI.h3 #. "section-title" # set text "Dealer",
-         element dealerDiv,
-         UI.h3 #. "section-title mt-4" # set text "Players",
-         element playerDiv
-       ]
+  lift $
+    UI.div
+      #. "table-container container mt-4"
+      #+ [ UI.h3 #. "section-title" # set text "Dealer",
+           element dealerDiv,
+           UI.h3 #. "section-title mt-4" # set text "Players",
+           element playerDiv
+         ]
 
 renderPlayers :: TableModel -> [UI Element]
 renderPlayers TableModel {playerHands} =
-  fmap renderPlayer (Map.toList playerHands)
+  map renderPlayer (Map.toList playerHands)
 
 renderPlayer :: (PlayerId, Hand) -> UI Element
-renderPlayer (PlayerId pid, hand) = do
+renderPlayer (pid, hand) = do
   cardElems <- sequence $ renderHand hand
   UI.div
     #. "player mb-3"
-    #+ [ UI.h5 #. "player-title mb-2" # set text ("Player " ++ show pid),
+    #+ [ UI.h5 #. "player-title mb-2" # set text (show pid),
          UI.div #. "hand d-flex flex-wrap gap-2" # set children cardElems
        ]
+
+renderPlayerControls :: PlayerId -> Component
+renderPlayerControls pid = do
+  hitBtn <- lift $ UI.button #. "btn btn-primary me-2" # set text "Hit Me"
+  standBtn <- lift $ UI.button #. "btn btn-secondary" # set text "Stand"
+
+  let evHit = PlayerTurnCmd (Hit pid) <$ UI.click hitBtn
+      evStand = PlayerTurnCmd (Stand pid) <$ UI.click standBtn
+
+  tell [evHit, evStand]
+
+  lift $ UI.div #. "player-controls mt-2" #+ [element hitBtn, element standBtn]
 
 renderDealer :: TableModel -> [UI Element]
 renderDealer table = case table.dealer of

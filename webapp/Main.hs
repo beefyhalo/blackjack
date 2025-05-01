@@ -2,7 +2,7 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
-module Game.UI (main) where
+module Main (main) where
 
 import Control.Monad (void)
 import Control.Monad.Identity (Identity (..))
