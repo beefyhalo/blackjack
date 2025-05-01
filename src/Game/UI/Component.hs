@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
-module Game.UI.Component where
+module Game.UI.Component (module Game.UI.Component) where
 
 import Control.Monad.Trans.Writer.CPS (WriterT, runWriterT)
 import GHC.IsList

@@ -1,18 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE ImpredicativeTypes #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
-module Game.UI where
+module Game.UI (main) where
 
 import Control.Monad (void)
 import Control.Monad.Identity (Identity (..))
@@ -29,8 +18,8 @@ main :: IO ()
 main = startGUI defaultConfig setupGui
 
 setupGui :: Window -> UI ()
-setupGui window = mdo
-  pure window # set title "Blackjack"
+setupGui window = void mdo
+  _ <- pure window # set title "Blackjack"
   addStyleSheet window "style.css"
   rng <- initStdGen
   let initialGame = baseMachine rng
@@ -40,6 +29,6 @@ setupGui window = mdo
   (decisions, _) <- mapAccum initialGame (fmap runGame commands)
   model <- accumB initialModel (fmap update decisions)
 
-  void $ getBody window #+ [element ui]
+  getBody window #+ [element ui]
   where
     runGame command game = runIdentity (runBaseMachineT game command)
