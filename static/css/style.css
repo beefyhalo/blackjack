@@ -1,0 +1,37 @@
+body {
+  background-color: #f8f9fa;
+}
+
+.table-container {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: white;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  font-weight: bold;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 5px;
+}
+
+.card {
+  min-width: 100px;
+  text-align: center;
+  font-weight: bold;
+  background: #e9ecef;
+}
+
+.card-img {
+  width: 80px;
+  height: auto;
+  margin: 4px;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+}
+
+.card-img:hover {
+  transform: scale(1.05);
+}

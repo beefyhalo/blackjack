@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module Game.UI (main) where
 
@@ -15,12 +16,14 @@ import Graphics.UI.Threepenny.Core
 import System.Random (initStdGen)
 
 main :: IO ()
-main = startGUI defaultConfig setupGui
+main = startGUI defaultConfig {jsStatic = Just "static"} setupGui
 
 setupGui :: Window -> UI ()
 setupGui window = void mdo
-  _ <- pure window # set title "Blackjack"
+  pure window # set title "Blackjack"
+  addStyleSheet window "https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css"
   addStyleSheet window "style.css"
+
   rng <- initStdGen
   let initialGame = baseMachine rng
 
