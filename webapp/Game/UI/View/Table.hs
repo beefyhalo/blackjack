@@ -84,9 +84,10 @@ controlsWidget bPid bBusted = do
 
 -- | Dealer view with hole card and face-up card
 renderDealer :: TableModel -> [UI Element]
-renderDealer TableModel {dealer = Just d} =
-  [renderCard (visibleCard d), renderCardBack]
-renderDealer _ = []
+renderDealer TableModel {dealer = Just (Dealer (Hand [card]))} =
+  [renderCard card, renderCardBack]
+renderDealer tableModel =
+  renderAnimatedHand tableModel.animation (fmap dealerHand tableModel.dealer)
 
 -- | Render a hand with optional animation
 renderAnimatedHand :: AnimationState -> Maybe Hand -> [UI Element]

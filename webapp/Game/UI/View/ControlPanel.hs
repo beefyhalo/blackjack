@@ -7,26 +7,32 @@ import Control.Monad.Writer (tell)
 import Data.Text (pack)
 import Game.UI.Component (Component)
 import Game.UI.Model (Model)
-import Graphics.UI.Threepenny
 import Graphics.UI.Threepenny qualified as UI
+import Graphics.UI.Threepenny.Core
 import Text.Read (readMaybe)
 import Types
 
 viewControlPanel :: Behavior Model -> Component
 viewControlPanel _bModel = do
-  txtName <- lift $ UI.input # set (attr "placeholder") "Enter name"
-  btnJoin <- lift $ UI.button # set text "Join Game"
-  btnLeave <- lift $ UI.button # set text "Leave Game"
-  btnStart <- lift $ UI.button # set text "Start Game"
-  txtBet <- lift $ UI.input # set (attr "type") "number" # set (attr "placeholder") "Bet amount"
-  btnBet <- lift $ UI.button # set text "Place Bet"
-  btnDeal <- lift $ UI.button # set text "Deal"
-  btnDealerTurn <- lift $ UI.button # set text "Dealer Turn"
-  btnResolve <- lift $ UI.button # set text "Resolve"
-  btnRestart <- lift $ UI.button # set text "Restart"
+  -- Input Fields
+  txtName <- lift $ UI.input #. "input-name" # set (attr "placeholder") "Enter name"
+  txtBet <- lift $ UI.input #. "input-bet" # set (attr "type") "number" # set (attr "placeholder") "Bet amount"
 
+  -- Buttons
+  btnJoin <- lift $ UI.button #. "btn" # set text "Join Game"
+  btnLeave <- lift $ UI.button #. "btn" # set text "Leave Game"
+  btnStart <- lift $ UI.button #. "btn" # set text "Start Game"
+  btnBet <- lift $ UI.button #. "btn" # set text "Place Bet"
+  btnDeal <- lift $ UI.button #. "btn" # set text "Deal"
+  btnDealerTurn <- lift $ UI.button #. "btn" # set text "Dealer Turn"
+  btnResolve <- lift $ UI.button #. "btn" # set text "Resolve"
+  btnRestart <- lift $ UI.button #. "btn" # set text "Restart"
+
+  -- Reactive Inputs
   nameIn <- stepper "" (UI.valueChange txtName)
   betIn <- stepper (Bet 0) $ maybe 0 Bet . readMaybe <$> UI.valueChange txtBet
+
+  -- Event Wiring
   let evJoin = LobbyCmd . JoinGame . pack <$> nameIn <@ UI.click btnJoin
       evLeave = LobbyCmd (LeaveGame (PlayerId 0)) <$ UI.click btnLeave
       evStart = LobbyCmd StartGame <$ UI.click btnStart
@@ -38,20 +44,27 @@ viewControlPanel _bModel = do
 
   tell [evJoin, evLeave, evStart, evBet, evDeal, evDealerTurn, evResolve, evRestart]
 
+  -- UI Layout
   lift $
     UI.div
-      #+ [ UI.string "Lobby:",
-           element txtName,
-           element btnJoin,
-           element btnLeave,
-           element btnStart,
+      #. "control-panel"
+      #+ [ UI.div
+             #. "panel lobby-panel"
+             #+ [ UI.h3 # set text "Lobby",
+                  element txtName,
+                  UI.div #. "button-row" #+ map element [btnJoin, btnLeave, btnStart]
+                ],
            UI.hr,
-           UI.string "Betting:",
-           element txtBet,
-           element btnBet,
-           element btnDeal,
+           UI.div
+             #. "panel betting-panel"
+             #+ [ UI.h3 # set text "Betting",
+                  element txtBet,
+                  UI.div #. "button-row" #+ map element [btnBet, btnDeal]
+                ],
            UI.hr,
-           element btnDealerTurn,
-           element btnResolve,
-           element btnRestart
+           UI.div
+             #. "panel game-panel"
+             #+ [ UI.h3 # set text "Actions",
+                  UI.div #. "button-row" #+ map element [btnDealerTurn, btnResolve, btnRestart]
+                ]
          ]

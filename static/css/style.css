@@ -5,6 +5,32 @@ body {
   padding: 0;
 }
 
+.control-panel {
+  padding: 1em;
+  font-family: sans-serif;
+}
+
+.panel {
+  margin-bottom: 1em;
+}
+
+.button-row {
+  display: flex;
+  gap: 0.5em;
+  margin-top: 0.5em;
+}
+
+.btn {
+  padding: 0.5em 1em;
+  font-weight: bold;
+}
+
+.input-name,
+.input-bet {
+  width: 100%;
+  margin-bottom: 0.5em;
+}
+
 .table-container {
   border: 1px solid #ddd;
   border-radius: 10px;
