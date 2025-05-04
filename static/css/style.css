@@ -25,6 +25,33 @@ body {
   margin-bottom: 10px;
 }
 
+/* Styling for a busted hand */
+.player.busted {
+  border: 3px solid red;
+  background-color: #f8d7da;
+  /* Light red background */
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+  /* Glowing red effect */
+  transform: scale(1.05);
+  /* Slight scale to emphasize */
+  animation: pulse 1s infinite alternate;
+  /* Pulsing animation */
+}
+
+/* Pulsing animation for busted hand */
+@keyframes pulse {
+  0% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+
 .hand {
   display: flex;
   gap: 0.75rem;

@@ -6,6 +6,7 @@
 module Game.UI.View.Table (viewTable) where
 
 import Control.Monad.Writer.CPS (lift, tell)
+import Data.Bool (bool)
 import Data.Char (toLower)
 import Data.Functor (void)
 import Data.Map.Strict qualified as Map
@@ -43,21 +44,23 @@ playerWidget bMaybePlayer bAnim = do
   let bHandElems = renderAnimatedHand <$> bAnim <*> (fmap snd <$> bMaybePlayer)
       bNameText = foldMap (show . fst) <$> bMaybePlayer
       bPid = fmap fst <$> bMaybePlayer
+      bBusted = maybe False (isBust . snd) <$> bMaybePlayer -- Check if hand is busted
+      bStyle = bool "player mb-3" "player mb-3 busted" <$> bBusted
 
-  controls <- controlsWidget bPid
+  controls <- controlsWidget bPid bBusted
 
   lift $
     UI.div
-      #. "player mb-3"
+      # sink UI.class_ bStyle
       #+ [ UI.h5 #. "player-title mb-2" # sink text bNameText,
            UI.div #. "hand d-flex flex-wrap gap-2" # sink items bHandElems,
            element controls
          ]
 
 -- | Render the "Hit" and "Stand" buttons, emitting PlayerTurnCmd events
-controlsWidget :: Behavior (Maybe PlayerId) -> Component
-controlsWidget bPid = do
-  let enabled = fmap isJust bPid
+controlsWidget :: Behavior (Maybe PlayerId) -> Behavior Bool -> Component
+controlsWidget bPid bBusted = do
+  let enabled = (&&) <$> fmap isJust bPid <*> fmap not bBusted
   hitBtn <-
     lift $
       UI.button
