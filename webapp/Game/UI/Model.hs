@@ -15,18 +15,25 @@ newtype Model = Model
 
 data TableModel = TableModel
   { playerHands :: Map.Map PlayerId Hand,
-    dealer :: Maybe Dealer
+    dealer :: Maybe Dealer,
+    animation :: AnimationState
   }
   deriving (Show)
 
+data AnimationState
+  = NoAnimation
+  | AnimateDealing
+  | AnimateHit PlayerId
+  deriving (Show, Eq)
+
 initialModel :: Model
-initialModel = Model (TableModel Map.empty Nothing)
+initialModel = Model (TableModel Map.empty Nothing NoAnimation)
 
 update :: Decision -> Model -> Model
 update msg model = traceShow ("update", msg, model) $ case msg of
   Right (DealingEvt (CardsDealt ps dealer)) ->
-    model {table = TableModel (Map.fromList ps) (Just dealer)}
+    model {table = TableModel (Map.fromList ps) (Just dealer) AnimateDealing}
   Right (PlayerTurnEvt (HitCard pid card)) ->
     let playerHands = Map.adjust (addCard card) pid model.table.playerHands
-     in model {table = model.table {playerHands}}
-  _ -> model
+     in model {table = model.table {playerHands, animation = AnimateHit pid}}
+  _ -> model {table = model.table {animation = NoAnimation}}

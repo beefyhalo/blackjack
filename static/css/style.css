@@ -1,5 +1,8 @@
 body {
   background-color: #f8f9fa;
+  font-family: 'Segoe UI', sans-serif;
+  margin: 0;
+  padding: 0;
 }
 
 .table-container {
@@ -7,13 +10,26 @@ body {
   border-radius: 10px;
   background: white;
   padding: 20px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: fade-in 1s ease-out;
 }
 
 .section-title {
   font-weight: bold;
-  border-bottom: 1px solid #ccc;
+  font-size: 1.5rem;
+  border-bottom: 2px solid #ccc;
   padding-bottom: 5px;
+  margin-bottom: 10px;
+}
+
+.hand {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .card {
@@ -21,17 +37,99 @@ body {
   text-align: center;
   font-weight: bold;
   background: #e9ecef;
+  border-radius: 8px;
+  padding: 5px;
 }
 
+/* Base card styling */
 .card-img {
   width: 80px;
   height: auto;
-  margin: 4px;
   border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  transition: transform 0.5s ease, opacity 0.5s ease, box-shadow 0.3s;
 }
 
 .card-img:hover {
-  transform: scale(1.05);
+  transform: scale(1.15) rotate(2deg);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Animated card entrance */
+.animate-deal {
+  opacity: 0;
+  transform: translateY(-50px) scale(0.8) rotate(-10deg);
+  animation: deal-in 0.6s forwards cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+
+/* Animation keyframes */
+@keyframes deal-in {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+/* Fade-in for table container */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Staggered animation delays */
+.delay-0 {
+  animation-delay: 0s;
+}
+
+.delay-1 {
+  animation-delay: 0.1s;
+}
+
+.delay-2 {
+  animation-delay: 0.2s;
+}
+
+.delay-3 {
+  animation-delay: 0.3s;
+}
+
+.delay-4 {
+  animation-delay: 0.4s;
+}
+
+.delay-5 {
+  animation-delay: 0.5s;
+}
+
+.delay-6 {
+  animation-delay: 0.6s;
+}
+
+.delay-7 {
+  animation-delay: 0.7s;
+}
+
+.delay-8 {
+  animation-delay: 0.8s;
+}
+
+.delay-9 {
+  animation-delay: 0.9s;
+}
+
+/* Optional button effects */
+button.btn {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+button.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }

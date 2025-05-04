@@ -11,7 +11,7 @@ import Data.Functor (void)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (isJust)
 import Game.UI.Component (Component)
-import Game.UI.Model (TableModel (..))
+import Game.UI.Model (AnimationState (..), TableModel (..))
 import Graphics.UI.Threepenny qualified as UI
 import Graphics.UI.Threepenny.Core
 import Types
@@ -19,7 +19,7 @@ import Types
 viewTable :: Behavior TableModel -> Component
 viewTable bTable = do
   dealerElem <- lift $ UI.div #. "dealer" # sink items (renderDealer <$> bTable)
-  playersElem <- playersWidget (playerHands <$> bTable)
+  playersElem <- playersWidget (playerHands <$> bTable) (animation <$> bTable)
 
   lift $
     UI.div
@@ -31,16 +31,16 @@ viewTable bTable = do
          ]
 
 -- | Render the widget for all players
-playersWidget :: Behavior (Map.Map PlayerId Hand) -> Component
-playersWidget bHands = do
+playersWidget :: Behavior (Map.Map PlayerId Hand) -> Behavior AnimationState -> Component
+playersWidget bHands bAnim = do
   let find i = fmap (i,) . Map.lookup i
-  playerElems <- traverse (\i -> playerWidget (fmap (find (PlayerId i)) bHands)) [0 .. 3]
+  playerElems <- traverse (\i -> playerWidget (fmap (find (PlayerId i)) bHands) bAnim) [0 .. 3]
   lift $ UI.div #. "players" # set children playerElems
 
 -- | Render the single player's row
-playerWidget :: Behavior (Maybe (PlayerId, Hand)) -> Component
-playerWidget bMaybePlayer = do
-  let bHandElems = foldMap (renderHand . snd) <$> bMaybePlayer
+playerWidget :: Behavior (Maybe (PlayerId, Hand)) -> Behavior AnimationState -> Component
+playerWidget bMaybePlayer bAnim = do
+  let bHandElems = renderAnimatedHand <$> bAnim <*> (fmap snd <$> bMaybePlayer)
       bNameText = foldMap (show . fst) <$> bMaybePlayer
       bPid = fmap fst <$> bMaybePlayer
 
@@ -84,9 +84,20 @@ renderDealer TableModel {dealer = Just d} =
   [renderCardBack, renderCard (visibleCard d)]
 renderDealer _ = []
 
--- | Render all cards in a hand
-renderHand :: Hand -> [UI Element]
-renderHand = map renderCard . unHand
+-- | Render a hand with optional animation
+renderAnimatedHand :: AnimationState -> Maybe Hand -> [UI Element]
+renderAnimatedHand anim = \case
+  Just (Hand cards) -> case anim of
+    AnimateDealing -> zipWith renderCardAnimated [0 ..] cards
+    AnimateHit _pid -> map (renderCardAnimated 0) cards
+    NoAnimation -> map renderCard cards
+  Nothing -> []
+
+-- | Render a card element with an optional animation delay
+renderCardAnimated :: Int -> Card -> UI Element
+renderCardAnimated i card =
+  renderCard card
+    #. ("card-img animate-deal delay-" ++ show i)
 
 renderCard :: Card -> UI Element
 renderCard card =
