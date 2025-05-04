@@ -9,6 +9,7 @@ import Control.Monad.Writer.CPS (lift, tell)
 import Data.Char (toLower)
 import Data.Functor (void)
 import Data.Map.Strict qualified as Map
+import Data.Maybe (isJust)
 import Game.UI.Component (Component)
 import Game.UI.Model (TableModel (..))
 import Graphics.UI.Threepenny qualified as UI
@@ -17,59 +18,75 @@ import Types
 
 viewTable :: Behavior TableModel -> Component
 viewTable bTable = do
-  dealerDiv <- lift $ UI.div #. "dealer" # sink items (fmap renderDealer bTable)
-
-  playerDiv <- lift do
-    -- let playerIds = fmap (Map.keys . playerHands) bTable
-    -- let playerControlElems = fmap renderPlayerControls <$> playerIds
-    UI.div
-      #. "players"
-      #+ [ UI.div # sink items (fmap renderPlayers bTable)
-      --  UI.div #. "player-controls mt-4 d-flex gap-3" # sink items playerControlElems
-         ]
+  dealerElem <- lift $ UI.div #. "dealer" # sink items (renderDealer <$> bTable)
+  playersElem <- playersWidget (playerHands <$> bTable)
 
   lift $
     UI.div
       #. "table-container container mt-4"
       #+ [ UI.h3 #. "section-title" # set text "Dealer",
-           element dealerDiv,
+           element dealerElem,
            UI.h3 #. "section-title mt-4" # set text "Players",
-           element playerDiv
+           element playersElem
          ]
 
-renderPlayers :: TableModel -> [UI Element]
-renderPlayers TableModel {playerHands} =
-  map renderPlayer (Map.toList playerHands)
+-- | Render the widget for all players
+playersWidget :: Behavior (Map.Map PlayerId Hand) -> Component
+playersWidget bHands = do
+  let find i = fmap (i,) . Map.lookup i
+  playerElems <- traverse (\i -> playerWidget (fmap (find (PlayerId i)) bHands)) [0 .. 3]
+  lift $ UI.div #. "players" # set children playerElems
 
-renderPlayer :: (PlayerId, Hand) -> UI Element
-renderPlayer (pid, hand) = do
-  cardElems <- sequence $ renderHand hand
-  UI.div
-    #. "player mb-3"
-    #+ [ UI.h5 #. "player-title mb-2" # set text (show pid),
-         UI.div #. "hand d-flex flex-wrap gap-2" # set children cardElems
-       ]
+-- | Render the single player's row
+playerWidget :: Behavior (Maybe (PlayerId, Hand)) -> Component
+playerWidget bMaybePlayer = do
+  let bHandElems = foldMap (renderHand . snd) <$> bMaybePlayer
+      bNameText = foldMap (show . fst) <$> bMaybePlayer
+      bPid = fmap fst <$> bMaybePlayer
 
-renderPlayerControls :: PlayerId -> Component
-renderPlayerControls pid = do
-  hitBtn <- lift $ UI.button #. "btn btn-primary me-2" # set text "Hit Me"
-  standBtn <- lift $ UI.button #. "btn btn-secondary" # set text "Stand"
+  controls <- controlsWidget bPid
 
-  let evHit = PlayerTurnCmd (Hit pid) <$ UI.click hitBtn
-      evStand = PlayerTurnCmd (Stand pid) <$ UI.click standBtn
+  lift $
+    UI.div
+      #. "player mb-3"
+      #+ [ UI.h5 #. "player-title mb-2" # sink text bNameText,
+           UI.div #. "hand d-flex flex-wrap gap-2" # sink items bHandElems,
+           element controls
+         ]
 
-  tell [evHit, evStand]
+-- | Render the "Hit" and "Stand" buttons, emitting PlayerTurnCmd events
+controlsWidget :: Behavior (Maybe PlayerId) -> Component
+controlsWidget bPid = do
+  let enabled = fmap isJust bPid
+  hitBtn <-
+    lift $
+      UI.button
+        #. "btn btn-primary me-2"
+        # set text "Hit Me"
+        # sink UI.enabled enabled
+  standBtn <-
+    lift $
+      UI.button
+        #. "btn btn-secondary"
+        # set text "Stand"
+        # sink UI.enabled enabled
+
+  let evHit = fmap (PlayerTurnCmd . Hit) <$> bPid <@ UI.click hitBtn
+      evStand = fmap (PlayerTurnCmd . Stand) <$> bPid <@ UI.click standBtn
+
+  tell [filterJust evHit, filterJust evStand]
 
   lift $ UI.div #. "player-controls mt-2" #+ [element hitBtn, element standBtn]
 
+-- | Dealer view with hole card and face-up card
 renderDealer :: TableModel -> [UI Element]
-renderDealer table = case table.dealer of
-  Just dealer -> [renderCardBack, renderCard (visibleCard dealer)]
-  _ -> []
+renderDealer TableModel {dealer = Just d} =
+  [renderCardBack, renderCard (visibleCard d)]
+renderDealer _ = []
 
+-- | Render all cards in a hand
 renderHand :: Hand -> [UI Element]
-renderHand (Hand cards) =
-  map renderCard cards
+renderHand = map renderCard . unHand
 
 renderCard :: Card -> UI Element
 renderCard card =
@@ -101,6 +118,6 @@ cardImageName Card {rank, suit} =
       Ten -> "10"
       _ -> show rank
 
+-- | Replace all children of an element with the given elements
 items :: WriteAttr Element [UI Element]
-items = mkWriteAttr $ \i x -> void do
-  pure x # set children [] #+ map (\j -> UI.span #+ [j]) i
+items = mkWriteAttr $ \i el -> void do element el # set children [] #+ i
