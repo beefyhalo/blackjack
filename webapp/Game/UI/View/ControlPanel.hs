@@ -21,6 +21,9 @@ viewControlPanel _bModel = do
   txtBet <- lift $ UI.input # set (attr "type") "number" # set (attr "placeholder") "Bet amount"
   btnBet <- lift $ UI.button # set text "Place Bet"
   btnDeal <- lift $ UI.button # set text "Deal"
+  btnDealerTurn <- lift $ UI.button # set text "Dealer Turn"
+  btnResolve <- lift $ UI.button # set text "Resolve"
+  btnRestart <- lift $ UI.button # set text "Restart"
 
   nameIn <- stepper "" (UI.valueChange txtName)
   betIn <- stepper (Bet 0) $ maybe 0 Bet . readMaybe <$> UI.valueChange txtBet
@@ -29,8 +32,11 @@ viewControlPanel _bModel = do
       evStart = LobbyCmd StartGame <$ UI.click btnStart
       evBet = BettingCmd . PlaceBet (PlayerId 0) <$> betIn <@ UI.click btnBet
       evDeal = DealingCmd DealInitialCards <$ UI.click btnDeal
+      evDealerTurn = DealerTurnCmd DealerPlay <$ UI.click btnDealerTurn
+      evResolve = ResolutionCmd ResolveRound <$ UI.click btnResolve
+      evRestart = ResultCmd RestartGame <$ UI.click btnRestart
 
-  tell [evJoin, evLeave, evStart, evBet, evDeal]
+  tell [evJoin, evLeave, evStart, evBet, evDeal, evDealerTurn, evResolve, evRestart]
 
   lift $
     UI.div
@@ -43,5 +49,9 @@ viewControlPanel _bModel = do
            UI.string "Betting:",
            element txtBet,
            element btnBet,
-           element btnDeal
+           element btnDeal,
+           UI.hr,
+           element btnDealerTurn,
+           element btnResolve,
+           element btnRestart
          ]

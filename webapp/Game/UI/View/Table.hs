@@ -76,15 +76,16 @@ controlsWidget bPid bBusted = do
 
   let evHit = fmap (PlayerTurnCmd . Hit) <$> bPid <@ UI.click hitBtn
       evStand = fmap (PlayerTurnCmd . Stand) <$> bPid <@ UI.click standBtn
+      evStandAndResolveRound = ResolutionCmd ResolveRound <$ evStand
 
-  tell [filterJust evHit, filterJust evStand]
+  tell [filterJust evHit, filterJust evStand, evStandAndResolveRound]
 
   lift $ UI.div #. "player-controls mt-2" #+ [element hitBtn, element standBtn]
 
 -- | Dealer view with hole card and face-up card
 renderDealer :: TableModel -> [UI Element]
 renderDealer TableModel {dealer = Just d} =
-  [renderCardBack, renderCard (visibleCard d)]
+  [renderCard (visibleCard d), renderCardBack]
 renderDealer _ = []
 
 -- | Render a hand with optional animation

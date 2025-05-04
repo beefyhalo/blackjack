@@ -32,6 +32,6 @@ setupGui window = void mdo
   (decisions, _) <- mapAccum initialGame (fmap runGame commands)
   model <- accumB initialModel (fmap update decisions)
 
-  getBody window #+ [element ui]
+  getBody window # set children [ui]
   where
     runGame command game = runIdentity (runBaseMachineT game command)

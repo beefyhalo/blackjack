@@ -36,4 +36,6 @@ update msg model = traceShow ("update", msg, model) $ case msg of
   Right (PlayerTurnEvt (HitCard pid card)) ->
     let playerHands = Map.adjust (addCard card) pid model.table.playerHands
      in model {table = model.table {playerHands, animation = AnimateHit pid}}
+  Right (DealerTurnEvt (DealerPlayed dealer)) ->
+    model {table = model.table {dealer = Just dealer}}
   _ -> model {table = model.table {animation = NoAnimation}}
