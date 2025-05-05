@@ -8,12 +8,12 @@ module Game.Test.Betting (tests) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
-import Types
 import Game.Betting (decideBetting, evolveBetting)
 import Game.Gen
 import GameTopology (Game (Game, state), GameState (BettingState, DealingState), SomeGame (SomeGame))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
+import Types
 
 tests :: IO Bool
 tests = checkParallel $$discover

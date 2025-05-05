@@ -1,6 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Game.Test.Dealing (tests) where
@@ -9,12 +10,12 @@ import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Traversable (for)
-import Types
 import Game.Dealing (decideDealing, evolveDealing)
 import Game.Gen
-import GameTopology (Game (Game, state), GameContext (GameContext), GameState (..), InsuranceContext (..), OpeningContext (..), SomeGame (SomeGame))
+import GameTopology (Game (Game, state), GameContext (..), GameState (..), InsuranceContext (..), OpeningContext (..), SomeGame (SomeGame))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
+import Types
 
 tests :: IO Bool
 tests = checkParallel $$discover
@@ -41,17 +42,17 @@ prop_evolve_CardsDealt_advances_state = property do
   dealer <- forAll genDealer
   let evolved = evolveDealing game (CardsDealt playerHands dealer)
   case evolved of
-    EvolutionResult Game {state = OfferingInsuranceState (GameContext deck' rounds dealer')} -> do
-      assert (hasAce (dealerHand dealer'))
-      length rounds === length playerHands
-      diff (drawn deck) (<) (drawn deck')
-    EvolutionResult Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} -> do
-      let InsuranceContext {context = GameContext deck' rounds dealer', insurancePayouts} = insuranceContext
-      assert (null readyPlayers)
+    EvolutionResult Game {state = OfferingInsuranceState ctx} -> do
+      assert (hasAce ctx.dealer.dealerHand)
+      length ctx.rounds === length playerHands
+      diff deck.drawn (<) ctx.deck.drawn
+    EvolutionResult Game {state = OpeningTurnState ctx} -> do
+      let InsuranceContext {context, insurancePayouts} = ctx.insuranceContext
+      assert (null ctx.readyPlayers)
       assert (null insurancePayouts)
-      length rounds === length playerHands
-      diff (drawn deck) (<) (drawn deck')
-      dealer === dealer'
+      length context.rounds === length playerHands
+      diff deck.drawn (<) context.deck.drawn
+      dealer === context.dealer
     _ -> failure
 
 -- decide rejects commands if not in the dealing state

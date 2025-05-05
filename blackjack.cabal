@@ -105,7 +105,6 @@ test-suite blackjack-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Game.DomainSpec
       Game.Gen
       Game.Test.Betting
       Game.Test.DealerTurn
@@ -115,6 +114,7 @@ test-suite blackjack-test
       Game.Test.PlayerTurn
       Game.Test.Resolution
       Game.Test.Result
+      Game.TypesSpec
       Paths_blackjack
   autogen-modules:
       Paths_blackjack
@@ -126,12 +126,8 @@ test-suite blackjack-test
     , blackjack
     , containers
     , crem
-    , exceptions
     , hedgehog
-    , mmorph
-    , mtl
     , nonempty-zipper
     , random
     , text
-    , transformers
   default-language: GHC2021

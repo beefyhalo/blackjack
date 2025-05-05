@@ -101,8 +101,7 @@ renderAnimatedHand anim = \case
 -- | Render a card element with an optional animation delay
 renderCardAnimated :: Int -> Card -> UI Element
 renderCardAnimated i card =
-  renderCard card
-    #. ("card-img animate-deal delay-" ++ show i)
+  renderCard card #. ("card-img animate-deal delay-" ++ show i)
 
 renderCard :: Card -> UI Element
 renderCard card =

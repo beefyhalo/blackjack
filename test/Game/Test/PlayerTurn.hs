@@ -12,12 +12,12 @@ import Data.Foldable (toList)
 import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Types
 import Game.Gen
 import Game.PlayerTurn (decidePlayerTurn, evolveOpeningTurn)
 import GameTopology (Game (Game, state), GameContext (..), GamePhase (..), GameState (DealerTurnState, OpeningTurnState, PlayerTurnState, ResolvingState), InsuranceContext (..), OpeningContext (..))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
+import Types
 import Prelude hiding (round)
 
 tests :: IO Bool

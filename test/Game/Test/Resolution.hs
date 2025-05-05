@@ -1,6 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Game.Test.Resolution (tests) where
@@ -8,12 +9,12 @@ module Game.Test.Resolution (tests) where
 import Crem.Decider (EvolutionResult (..))
 import Data.Foldable (for_, toList)
 import Data.Map.Strict qualified as Map
-import Types
 import Game.Gen
 import Game.Resolution (decideResolution, evolveResolution)
-import GameTopology (SomeGame(SomeGame), Game (Game, state), GameState (ResolvingState, ResultState), ResolutionContext (..))
+import GameTopology (Game (Game, state), GameState (ResolvingState, ResultState), ResolutionContext (..), SomeGame (SomeGame))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
+import Types
 import Prelude hiding (round)
 
 tests :: IO Bool
@@ -21,20 +22,20 @@ tests = checkParallel $$discover
 
 prop_decide_emits_RoundResolved :: Property
 prop_decide_emits_RoundResolved = property do
-  game@Game {state = ResolvingState ResolutionContext {resolvedRounds}} <- forAll genResolvingStateGame
+  game@Game {state = ResolvingState ctx} <- forAll genResolvingStateGame
   case decideResolution game ResolveRound of
     Right (RoundResolved _ playerSummaries) ->
-      length resolvedRounds === length playerSummaries
+      length ctx.resolvedRounds === length playerSummaries
     decision -> annotateShow decision >> failure
 
 prop_playerSummary_netChipChange_matches_finalChips :: Property
 prop_playerSummary_netChipChange_matches_finalChips = property do
-  game@Game {state = ResolvingState ResolutionContext {resolvedRounds}} <- forAll genResolvingStateGame
+  game@Game {state = ResolvingState ctx} <- forAll genResolvingStateGame
   case decideResolution game ResolveRound of
     Right (RoundResolved _ playerSummaries) ->
       for_ (Map.toList playerSummaries) \(pid, summary) -> do
         let PlayerSummary {netChipChange, finalChips, insurancePayout} = summary
-            PlayerRound {player = Player {stack}} = resolvedRounds Map.! pid
+            PlayerRound {player = Player {stack}} = ctx.resolvedRounds Map.! pid
             originalChips = chips stack
             expectedFinal = originalChips + netChipChange - maybe 0 insuranceDelta insurancePayout
         finalChips === expectedFinal
@@ -42,16 +43,16 @@ prop_playerSummary_netChipChange_matches_finalChips = property do
 
 prop_pushAmount_matches_push_outcomes :: Property
 prop_pushAmount_matches_push_outcomes = property do
-  game@Game {state = ResolvingState ResolutionContext {resolvedRounds}} <- forAll genResolvingStateGame
+  game@Game {state = ResolvingState ctx} <- forAll genResolvingStateGame
   case decideResolution game ResolveRound of
     Right (RoundResolved dealerOutcome summaries) ->
       for_ (Map.toList summaries) \(pid, summary) -> do
-        let round = resolvedRounds Map.! pid
+        let round = ctx.resolvedRounds Map.! pid
             pushedBetSum =
               sum
                 [ bet hand
-                  | hand <- toList (hands round),
-                    determineOutcome round hand dealerOutcome == Push
+                  | hand <- toList round.hands,
+                    determinePlayerOutcome round hand dealerOutcome == Push
                 ]
         nextRoundBet summary === pushedBetSum
     _ -> failure

@@ -8,12 +8,12 @@ module Game.Test.Lobby (tests) where
 
 import Crem.Decider (EvolutionResult (EvolutionResult))
 import Data.Map.Strict qualified as Map
-import Types
 import Game.Gen
 import Game.Lobby (decideLobby, evolveLobby)
-import GameTopology (SomeGame(SomeGame), Game (Game, state), GameState (BettingState, LobbyState))
+import GameTopology (Game (Game, state), GameState (BettingState, LobbyState), SomeGame (SomeGame))
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
+import Types
 
 tests :: IO Bool
 tests = checkParallel $$discover

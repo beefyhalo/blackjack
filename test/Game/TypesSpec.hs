@@ -3,11 +3,11 @@
 
 module Game.TypesSpec (tests) where
 
-import Types
 import Game.Gen
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
+import Types
 
 tests :: IO Bool
 tests = checkParallel $$discover

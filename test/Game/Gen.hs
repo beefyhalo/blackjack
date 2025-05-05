@@ -8,12 +8,12 @@ import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text (Text)
-import Types
 import GameTopology
 import Hedgehog
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
 import System.Random (StdGen, mkStdGen)
+import Types
 
 genRank :: Gen Rank
 genRank = Gen.enumBounded
@@ -32,9 +32,9 @@ genTwoCardHand = Hand <$> replicateM 2 genCard
 
 genBlackjackHand :: Gen Hand
 genBlackjackHand = do
-  tenCard <- Card <$> Gen.element [Ten, Jack, Queen, King] <*> genSuit
+  ten <- Card <$> Gen.element [Ten, Jack, Queen, King] <*> genSuit
   ace <- Card Ace <$> genSuit
-  Gen.element [Hand [ace, tenCard], Hand [tenCard, ace]]
+  Gen.element [Hand [ace, ten], Hand [ten, ace]]
 
 genDealer :: Gen Dealer
 genDealer =
