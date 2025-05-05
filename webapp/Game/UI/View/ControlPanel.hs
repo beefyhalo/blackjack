@@ -26,7 +26,6 @@ viewControlPanel _bModel = do
   btnDeal <- lift $ UI.button #. "btn" # set text "Deal"
   btnDealerTurn <- lift $ UI.button #. "btn" # set text "Dealer Turn"
   btnResolve <- lift $ UI.button #. "btn" # set text "Resolve"
-  btnRestart <- lift $ UI.button #. "btn" # set text "Restart"
 
   -- Reactive Inputs
   nameIn <- stepper "" (UI.valueChange txtName)
@@ -40,9 +39,8 @@ viewControlPanel _bModel = do
       evDeal = DealingCmd DealInitialCards <$ UI.click btnDeal
       evDealerTurn = DealerTurnCmd DealerPlay <$ UI.click btnDealerTurn
       evResolve = ResolutionCmd ResolveRound <$ UI.click btnResolve
-      evRestart = ResultCmd RestartGame <$ UI.click btnRestart
 
-  tell [evJoin, evLeave, evStart, evBet, evDeal, evDealerTurn, evResolve, evRestart]
+  tell [evJoin, evLeave, evStart, evBet, evDeal, evDealerTurn, evResolve]
 
   -- UI Layout
   lift $
@@ -65,6 +63,6 @@ viewControlPanel _bModel = do
            UI.div
              #. "panel game-panel"
              #+ [ UI.h3 # set text "Actions",
-                  UI.div #. "button-row" #+ map element [btnDealerTurn, btnResolve, btnRestart]
+                  UI.div #. "button-row" #+ map element [btnDealerTurn, btnResolve]
                 ]
          ]
