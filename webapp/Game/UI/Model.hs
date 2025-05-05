@@ -41,4 +41,6 @@ update msg model = traceShow ("update", msg, model) $ case msg of
     model {table = model.table {dealer = Just dealer}}
   Right (ResolutionEvt result) ->
     model {result = Just result}
+  Right (ResultEvt GameRestarted) ->
+    initialModel
   _ -> model {table = model.table {animation = NoAnimation}}

@@ -18,7 +18,12 @@ viewResultModal :: Behavior (Maybe ResolutionEvent) -> Component
 viewResultModal bResult = do
   -- Buttons
   closeBtn <- lift $ UI.button #. "btn btn-secondary" # set text "Close"
-  restartBtn <- lift $ UI.button #. "btn btn-primary" # set text "Play Again"
+  restartBtn <-
+    lift $
+      UI.button
+        #. "btn btn-primary"
+        # set text "Play Again"
+        # set (attr "data-bs-dismiss") "modal"
   exitBtn <- lift $ UI.button #. "btn btn-danger" # set text "Exit"
 
   let btns = [restartBtn, exitBtn, closeBtn] -- Put Close at end like Bootstrap
