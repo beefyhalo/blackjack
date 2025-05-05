@@ -96,8 +96,8 @@ evolveOpeningTurn game@Game {state = OpeningTurnState ctx} event =
     splitPlayerHand :: Card -> Card -> Card -> Card -> PlayerRound -> PlayerRound
     splitPlayerHand card1 card2 draw1 draw2 round =
       let hands =
-            Z.push (initHandState (Hand [card1, draw1])) {bet = round.player.stack.currentBet}
-              . Z.push (initHandState (Hand [card2, draw2])) {bet = round.player.stack.currentBet}
+            Z.push (initHandState (Hand [card1, draw1]) round.player)
+              . Z.push (initHandState (Hand [card2, draw2]) round.player)
               $ round.hands
        in round {hands}
 

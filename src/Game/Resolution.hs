@@ -24,15 +24,15 @@ decideResolution Game {state = ResolvingState ctx} = \case
     resolvePlayer dealerOutcome pid round =
       let (outcomes, totalDelta, totalPush) = unzip3 $ map resolveHand (toList round.hands)
           net = sum totalDelta
-          pushed = sum totalPush
+          nextRoundBet = sum totalPush
           insurancePayout = Map.lookup pid ctx.resolvedInsurancePayouts
           insuranceNet = maybe 0 insuranceDelta insurancePayout
        in PlayerSummary
             { handOutcomes = NE.fromList outcomes,
               netChipChange = net + insuranceNet,
               finalChips = round.player.stack.chips + net,
-              nextRoundBet = pushed,
-              insurancePayout = insurancePayout
+              nextRoundBet,
+              insurancePayout
             }
       where
         resolveHand :: HandState -> (Outcome, Int, Bet)

@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Game.Test.Resolution (tests) where
@@ -38,6 +39,7 @@ prop_playerSummary_netChipChange_matches_finalChips = property do
             PlayerRound {player = Player {stack}} = ctx.resolvedRounds Map.! pid
             originalChips = chips stack
             expectedFinal = originalChips + netChipChange - maybe 0 insuranceDelta insurancePayout
+        classify "positive finalChips" (finalChips > 0)
         finalChips === expectedFinal
     _ -> failure
 

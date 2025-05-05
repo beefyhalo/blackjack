@@ -91,7 +91,7 @@ prop_chipsDelta_grouped = property do
   bet <- forAll $ genBet 1000 
 
   label "PlayerWins Blackjack"  
-  chipsDelta bet (PlayerWins Blackjack) === floor (fromIntegral bet.current * 1.5 :: Float)
+  chipsDelta bet (PlayerWins Blackjack) === round (fromIntegral bet.current * 1.5 :: Float)
 
   label "PlayerWins Normal"
   chipsDelta bet (PlayerWins OutscoredDealer) === bet.current

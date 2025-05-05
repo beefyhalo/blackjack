@@ -13,6 +13,7 @@ import Data.Text (Text)
 import Data.Vector qualified as V
 import System.Random (StdGen, randomR)
 import Prelude hiding (round)
+import Prelude qualified
 
 type Chips = Int
 
@@ -55,7 +56,7 @@ hasCompletedTurn round =
 
 initPlayerRound :: Hand -> Player -> PlayerRound
 initPlayerRound hand player =
-  let handState = initHandState hand
+  let handState = initHandState hand player
    in PlayerRound player (Z.fromNonEmpty $ pure handState) Nothing False
 
 modifyCurrentHand :: (HandState -> HandState) -> PlayerRound -> PlayerRound
@@ -78,8 +79,8 @@ data HandState = HandState
   }
   deriving (Eq, Show)
 
-initHandState :: Hand -> HandState
-initHandState hand = HandState hand (Bet 0) False False
+initHandState :: Hand -> Player -> HandState
+initHandState hand player = HandState hand player.stack.currentBet False False
 
 newtype Dealer = Dealer {dealerHand :: Hand}
   deriving (Eq, Show)
@@ -263,7 +264,7 @@ chipsDelta Bet {current} = \case
   DealerWins _ -> -current
   Push -> 0
   where
-    payout m = floor (fromIntegral current * m :: Float)
+    payout m = Prelude.round (fromIntegral current * m :: Float)
 
 data InsurancePayout
   = WonInsurancePayout Chips
