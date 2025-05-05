@@ -30,7 +30,7 @@ decideResolution Game {state = ResolvingState ctx} = \case
        in PlayerSummary
             { handOutcomes = NE.fromList outcomes,
               netChipChange = net + insuranceNet,
-              finalChips = chips round.player.stack + net,
+              finalChips = round.player.stack.chips + net,
               nextRoundBet = pushed,
               insurancePayout = insurancePayout
             }
@@ -46,7 +46,7 @@ decideResolution _ = \_ -> Left BadCommand
 evolveResolution :: Game ResolvingHands -> ResolutionEvent -> EvolutionResult GameTopology Game ResolvingHands output
 evolveResolution game@Game {state = ResolvingState ctx} = \case
   RoundResolved _ outcomes ->
-    let settle PlayerRound {player} (PlayerSummary {nextRoundBet, finalChips}) =
-          player {stack = PlayerStack nextRoundBet finalChips}
+    let settle round PlayerSummary {nextRoundBet, finalChips} =
+          round.player {stack = PlayerStack nextRoundBet finalChips}
         players = Map.mapWithKey (settle . (ctx.resolvedRounds Map.!)) outcomes
      in EvolutionResult game {state = ResultState players}

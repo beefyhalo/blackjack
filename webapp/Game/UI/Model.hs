@@ -8,8 +8,9 @@ import Debug.Trace (traceShow)
 import GameTopology (Decision)
 import Types
 
-newtype Model = Model
-  { table :: TableModel
+data Model = Model
+  { table :: TableModel,
+    result :: Maybe ResolutionEvent
   }
   deriving (Show)
 
@@ -27,7 +28,7 @@ data AnimationState
   deriving (Show, Eq)
 
 initialModel :: Model
-initialModel = Model (TableModel Map.empty Nothing NoAnimation)
+initialModel = Model (TableModel Map.empty Nothing NoAnimation) Nothing
 
 update :: Decision -> Model -> Model
 update msg model = traceShow ("update", msg, model) $ case msg of
@@ -38,4 +39,6 @@ update msg model = traceShow ("update", msg, model) $ case msg of
      in model {table = model.table {playerHands, animation = AnimateHit pid}}
   Right (DealerTurnEvt (DealerPlayed dealer)) ->
     model {table = model.table {dealer = Just dealer}}
+  Right (ResolutionEvt result) ->
+    model {result = Just result}
   _ -> model {table = model.table {animation = NoAnimation}}

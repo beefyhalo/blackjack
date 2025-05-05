@@ -82,6 +82,7 @@ executable blackjack-webapp
       Game.UI.Model
       Game.UI.View
       Game.UI.View.ControlPanel
+      Game.UI.View.ResultModal
       Game.UI.View.Table
       Paths_blackjack
   autogen-modules:

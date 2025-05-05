@@ -64,9 +64,9 @@ prop_resolution_fails_on_invalid_phase = property do
 
 prop_evolveResolution_transitions_to_ResultState :: Property
 prop_evolveResolution_transitions_to_ResultState = property do
-  game@Game {state = ResolvingState ResolutionContext {resolvedRounds}} <- forAll genResolvingStateGame
+  game@Game {state = ResolvingState ctx} <- forAll genResolvingStateGame
   dealerOutcome <- forAll genDealerOutcome
-  summaries <- forAll (genPlayerSummaries (Map.keysSet resolvedRounds))
+  summaries <- forAll (genPlayerSummaries (Map.keysSet ctx.resolvedRounds))
   let event = RoundResolved dealerOutcome summaries
       evolved = evolveResolution game event
   case evolved of
@@ -75,16 +75,16 @@ prop_evolveResolution_transitions_to_ResultState = property do
 
 prop_evolveResolution_sets_correct_player_stack :: Property
 prop_evolveResolution_sets_correct_player_stack = property do
-  game@Game {state = ResolvingState ResolutionContext {resolvedRounds}} <- forAll genResolvingStateGame
+  game@Game {state = ResolvingState ctx} <- forAll genResolvingStateGame
   dealerOutcome <- forAll genDealerOutcome
-  summaries <- forAll (genPlayerSummaries (Map.keysSet resolvedRounds))
+  summaries <- forAll (genPlayerSummaries (Map.keysSet ctx.resolvedRounds))
   let event = RoundResolved dealerOutcome summaries
       evolved = evolveResolution game event
   case evolved of
     EvolutionResult Game {state = ResultState players} ->
       for_ (Map.toList players) \(pid, player) -> do
         let PlayerSummary {nextRoundBet, finalChips} = summaries Map.! pid
-            PlayerStack bet chips = stack player
+            PlayerStack bet chips = player.stack
         bet === nextRoundBet
         chips === finalChips
     _ -> failure

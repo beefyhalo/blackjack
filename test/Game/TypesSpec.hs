@@ -1,5 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell,OverloadedStrings,OverloadedRecordDot #-}
 
 module Game.TypesSpec (tests) where
 
@@ -84,3 +84,23 @@ prop_all_aces_hand_values_correctly = property do
   let hand = Hand $ replicate n (Card Ace suit)
       expected = if n == 1 then 11 else 11 + (n - 1)
   score hand === expected
+
+
+prop_chipsDelta_grouped :: Property
+prop_chipsDelta_grouped = property do
+  bet <- forAll $ genBet 1000 
+
+  label "PlayerWins Blackjack"  
+  chipsDelta bet (PlayerWins Blackjack) === floor (fromIntegral bet.current * 1.5 :: Float)
+
+  label "PlayerWins Normal"
+  chipsDelta bet (PlayerWins OutscoredDealer) === bet.current
+
+  label "DealerWins Normal"
+  chipsDelta bet (DealerWins OutscoredByDealer) === -bet.current
+
+  label "DealerWins Surrendered"
+  chipsDelta bet (DealerWins Surrendered) === -(bet.current `div` 2)
+
+  label "Push"
+  chipsDelta bet Push === 0

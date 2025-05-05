@@ -8,10 +8,9 @@ module Game.UI.View.Table (viewTable) where
 import Control.Monad.Writer.CPS (lift, tell)
 import Data.Bool (bool)
 import Data.Char (toLower)
-import Data.Functor (void)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (isJust)
-import Game.UI.Component (Component)
+import Game.UI.Component (Component, items)
 import Game.UI.Model (AnimationState (..), TableModel (..))
 import Graphics.UI.Threepenny qualified as UI
 import Graphics.UI.Threepenny.Core
@@ -132,7 +131,3 @@ cardImageName Card {rank, suit} =
       Nine -> "9"
       Ten -> "10"
       _ -> show rank
-
--- | Replace all children of an element with the given elements
-items :: WriteAttr Element [UI Element]
-items = mkWriteAttr $ \i el -> void do element el # set children [] #+ i

@@ -1,10 +1,13 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Game.UI.Component (module Game.UI.Component) where
 
 import Control.Monad.Trans.Writer.CPS (WriterT, runWriterT)
+import Data.Functor (void)
 import GHC.IsList
 import Graphics.UI.Threepenny qualified as UI
+import Graphics.UI.Threepenny.Core
 import Types
 
 newtype EventStream = EventStream {event :: UI.Event Command}
@@ -24,3 +27,7 @@ type Component = WriterT EventStream UI.UI UI.Element
 
 runComponent :: Component -> UI.UI (UI.Element, EventStream)
 runComponent = runWriterT
+
+-- | Replace all children of an element with the given elements
+items :: WriteAttr Element [UI Element]
+items = mkWriteAttr $ \i el -> void do element el # set children [] #+ i
