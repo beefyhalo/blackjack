@@ -8,6 +8,7 @@ import Data.Functor (void)
 import GHC.IsList
 import Graphics.UI.Threepenny qualified as UI
 import Graphics.UI.Threepenny.Core
+import Reactive.Threepenny (onChange)
 import Types
 
 newtype EventStream = EventStream {event :: UI.Event Command}
@@ -31,3 +32,9 @@ runComponent = runWriterT
 -- | Replace all children of an element with the given elements
 items :: WriteAttr Element [UI Element]
 items = mkWriteAttr $ \i el -> void do element el # set children [] #+ i
+
+-- | Like `onChanges` but deferred by liftIOLater
+onChangesLater :: Behavior a -> (a -> UI ()) -> UI ()
+onChangesLater behavior f = do
+  w <- askWindow
+  liftIOLater $ onChange behavior (runUI w . f)

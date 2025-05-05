@@ -6,10 +6,10 @@
 module Game.UI.View.ResultModal (viewResultModal) where
 
 import Control.Monad.Writer.CPS (lift, tell)
-import Data.Foldable (Foldable (toList))
+import Data.Foldable (Foldable (toList), traverse_)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (maybeToList)
-import Game.UI.Component (Component, items)
+import Game.UI.Component (Component, items, onChangesLater)
 import Graphics.UI.Threepenny qualified as UI
 import Graphics.UI.Threepenny.Core
 import Types
@@ -30,10 +30,10 @@ viewResultModal bResult = do
   tell [evRestart, evExit]
 
   -- Render modal
-  lift $ UI.div # sink items (fmap (maybeToList . fmap (renderModal btns)) bResult)
+  lift $ renderModal btns bResult
 
 -- Modal rendering
-renderModal :: [Element] -> ResolutionEvent -> UI Element
+renderModal :: [Element] -> Behavior (Maybe ResolutionEvent) -> UI Element
 renderModal btns result = do
   modalHeader <-
     UI.div
@@ -45,11 +45,14 @@ renderModal btns result = do
              # set (attr "aria-label") "Close"
          ]
 
-  modalBody <- renderModalBody result
+  let modalBody = fmap (maybeToList . fmap renderModalBody) result
   modalFooter <- UI.div #. "modal-footer justify-content-between" #+ map element btns
 
+  -- Trigger show
+  onChangesLater result (traverse_ (const showModal))
+
   UI.div
-    #. "modal fade show d-block"
+    #. "modal fade"
     # set (attr "id") "resultModal"
     # set (attr "tabindex") "-1"
     # set (attr "role") "dialog"
@@ -59,7 +62,7 @@ renderModal btns result = do
            #. "modal-dialog modal-dialog-centered modal-lg"
            #+ [ UI.div
                   #. "modal-content"
-                  # set children [modalHeader, modalBody, modalFooter]
+                  # sink items (fmap (\b -> [element modalHeader] ++ b ++ [element modalFooter]) modalBody)
               ]
        ]
 
@@ -121,3 +124,6 @@ insuranceText = \case
   WonInsurancePayout n -> "Won insurance: " ++ show n
   LostInsuranceBet n -> "Lost insurance: " ++ show n
   NoInsurance -> ""
+
+showModal :: UI ()
+showModal = runFunction $ ffi "new bootstrap.Modal(document.getElementById('resultModal')).show()"
