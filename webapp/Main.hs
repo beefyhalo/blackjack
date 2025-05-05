@@ -11,19 +11,20 @@ import Game (baseMachine)
 import Game.UI.Component (EventStream (..), runComponent)
 import Game.UI.Model (initialModel, update)
 import Game.UI.View (view)
-import Graphics.UI.Threepenny (addStyleSheet)
 import Graphics.UI.Threepenny.Core
 import System.Random (initStdGen)
 
 main :: IO ()
-main = startGUI defaultConfig {jsStatic = Just "static"} setupGui
+main = startGUI config setupGui
+  where
+    config =
+      defaultConfig
+        { jsStatic = Just "static",
+          jsCustomHTML = Just "index.html"
+        }
 
 setupGui :: Window -> UI ()
 setupGui window = void mdo
-  pure window # set title "Blackjack"
-  addStyleSheet window "https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css"
-  addStyleSheet window "style.css"
-
   rng <- initStdGen
   let initialGame = baseMachine rng
 

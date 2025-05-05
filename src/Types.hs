@@ -80,7 +80,8 @@ data HandState = HandState
   deriving (Eq, Show)
 
 initHandState :: Hand -> Player -> HandState
-initHandState hand player = HandState hand player.stack.currentBet False False
+initHandState hand player =
+  HandState hand player.stack.currentBet False False
 
 newtype Dealer = Dealer {dealerHand :: Hand}
   deriving (Eq, Show)

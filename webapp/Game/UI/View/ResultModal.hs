@@ -21,7 +21,7 @@ viewResultModal bResult = do
   restartBtn <- lift $ UI.button #. "btn btn-primary" # set text "Play Again"
   exitBtn <- lift $ UI.button #. "btn btn-danger" # set text "Exit"
 
-  let btns = [closeBtn, restartBtn, exitBtn]
+  let btns = [restartBtn, exitBtn, closeBtn] -- Put Close at end like Bootstrap
 
   -- Event handlers for buttons
   let evRestart = ResultCmd RestartGame <$ UI.click restartBtn
@@ -29,27 +29,43 @@ viewResultModal bResult = do
 
   tell [evRestart, evExit]
 
-  -- Render modal based on result
+  -- Render modal
   lift $ UI.div # sink items (fmap (maybeToList . fmap (renderModal btns)) bResult)
 
--- Rendering the modal content
+-- Modal rendering
 renderModal :: [Element] -> ResolutionEvent -> UI Element
 renderModal btns result = do
-  modalBody <- renderModalBody result btns
+  modalHeader <-
+    UI.div
+      #. "modal-header"
+      #+ [ UI.h5 #. "modal-title" # set text "Round Results",
+           UI.button
+             #. "btn-close"
+             # set (attr "data-bs-dismiss") "modal"
+             # set (attr "aria-label") "Close"
+         ]
+
+  modalBody <- renderModalBody result
+  modalFooter <- UI.div #. "modal-footer justify-content-between" #+ map element btns
+
   UI.div
-    #. "modal fade show result-modal d-block"
+    #. "modal fade show d-block"
+    # set (attr "id") "resultModal"
     # set (attr "tabindex") "-1"
+    # set (attr "role") "dialog"
+    # set (attr "aria-modal") "true"
+    # set (attr "aria-labelledby") "modalTitle"
     #+ [ UI.div
            #. "modal-dialog modal-dialog-centered modal-lg"
            #+ [ UI.div
                   #. "modal-content"
-                  # set children [modalBody]
+                  # set children [modalHeader, modalBody, modalFooter]
               ]
        ]
 
--- Modal content and layout
-renderModalBody :: ResolutionEvent -> [Element] -> UI Element
-renderModalBody (RoundResolved dealerOutcome playerSummaries) btns = do
+-- Modal body rendering
+renderModalBody :: ResolutionEvent -> UI Element
+renderModalBody (RoundResolved dealerOutcome playerSummaries) = do
   dealerView <- renderDealerOutcome dealerOutcome
   playersView <- traverse (uncurry renderPlayerSummary) (Map.toList playerSummaries)
 
@@ -57,9 +73,7 @@ renderModalBody (RoundResolved dealerOutcome playerSummaries) btns = do
     #. "modal-body"
     #+ [ UI.div #. "dealer-section mb-3" #+ [element dealerView],
          UI.hr,
-         UI.div #. "player-section mb-3" #+ map element playersView,
-         UI.hr,
-         UI.div #. "modal-footer d-flex justify-content-between" #+ map element btns
+         UI.div #. "player-section mb-3" #+ map element playersView
        ]
 
 -- Rendering the dealer's outcome
