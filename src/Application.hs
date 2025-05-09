@@ -1,22 +1,34 @@
-module Application (stateMachine, stateMachineWithPolicy, projection, whole) where
+module Application (stateMachine, stateMachineWithAuto, stateMachineWithPolicy, projection, whole) where
 
 import Control.Arrow ((&&&))
+import Crem.BaseMachine (eitherM)
 import Crem.StateMachine (StateMachine, StateMachineT (..))
+import Data.Either (fromRight)
 import Data.Foldable (fold)
 import Data.List (singleton)
+import Data.Maybe (maybeToList)
 import Data.Profunctor (rmap)
-import Types
 import Game (baseMachine)
 import GameTopology (Decision)
-import Policy (insurancePolicy)
+import Policy (autoResolve, insurancePolicy)
 import Projection (Summary, gameProjection)
 import System.Random (StdGen)
+import Types
 
 stateMachine :: StdGen -> StateMachine Command Decision
 stateMachine stdGen = Basic (baseMachine stdGen)
 
 policy :: StateMachine Event (Maybe Command)
 policy = Basic insurancePolicy
+
+autoPolicy :: StateMachine Decision (Maybe Command)
+autoPolicy = Basic $ rmap (fromRight Nothing) (eitherM autoResolve)
+
+stateMachineWithAuto :: StdGen -> StateMachine Command [Decision]
+stateMachineWithAuto stdGen =
+  let stateMachine' = rmap singleton (stateMachine stdGen)
+      policy' = rmap maybeToList autoPolicy
+   in Feedback stateMachine' policy'
 
 stateMachineWithPolicy :: StdGen -> StateMachine Command [Event]
 stateMachineWithPolicy stdGen =

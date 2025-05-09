@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE LambdaCase #-}
@@ -7,11 +8,11 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
-module Policy (insurancePolicy) where
+module Policy (insurancePolicy, autoResolve) where
 
-import Crem.BaseMachine (BaseMachine, BaseMachineT (..), InitialState (InitialState), pureResult)
+import Crem.BaseMachine (BaseMachine, BaseMachineT (..), InitialState (InitialState), pureResult, statelessBase)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
-import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
+import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0, TrivialTopology)
 import Data.Set qualified as Set
 import Types
 import "singletons-base" Data.Singletons.Base.TH hiding (Sum)
@@ -46,3 +47,12 @@ insurancePolicy =
       let pids' = Set.delete pid pids
           command = if null pids' then Just (InsuranceCmd ResolveInsurance) else Nothing
        in pureResult command (InsurancePolicyState pids')
+
+autoResolve :: BaseMachine (TrivialTopology @()) Event (Maybe Command)
+autoResolve = statelessBase \case
+  InsuranceEvt (InsuranceResolved _) -> resolveRound
+  PlayerTurnEvt _ -> resolveRound
+  DealerTurnEvt _ -> resolveRound
+  _ -> Nothing
+  where
+    resolveRound = Just (ResolutionCmd ResolveRound)

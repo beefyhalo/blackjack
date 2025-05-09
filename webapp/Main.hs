@@ -4,10 +4,10 @@
 
 module Main (main) where
 
+import Application (stateMachineWithAuto)
 import Control.Monad (void)
 import Control.Monad.Identity (Identity (..))
-import Crem.BaseMachine (runBaseMachineT)
-import Game (baseMachine)
+import Crem.StateMachine (runMultiple)
 import Game.UI.Component (EventStream (..), runComponent)
 import Game.UI.Model (initialModel, update)
 import Game.UI.View (view)
@@ -26,13 +26,13 @@ main = startGUI config setupGui
 setupGui :: Window -> UI ()
 setupGui window = void mdo
   rng <- initStdGen
-  let initialGame = baseMachine rng
+  let initialGame = stateMachineWithAuto rng
 
   -- Reactive Model-Update-View
   (ui, EventStream commands) <- runComponent (view model)
   (decisions, _) <- mapAccum initialGame (fmap runGame commands)
-  model <- accumB initialModel (fmap update decisions)
+  model <- accumB initialModel (flip (foldr update) <$> decisions)
 
   getBody window # set children [ui]
   where
-    runGame command game = runIdentity (runBaseMachineT game command)
+    runGame command game = runIdentity (runMultiple game command)

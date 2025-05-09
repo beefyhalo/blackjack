@@ -11,15 +11,16 @@ import Graphics.UI.Threepenny.Core
 import Reactive.Threepenny (onChange)
 import Types
 
-newtype EventStream = EventStream {event :: UI.Event Command}
+newtype EventStream = EventStream {events :: UI.Event [Command]}
 
 instance IsList EventStream where
   type Item EventStream = UI.Event Command
-  fromList = EventStream . fmap head . UI.unions
-  toList EventStream {event} = [event]
+  fromList = EventStream . UI.unions
+  toList _ = []
 
 instance Semigroup EventStream where
-  EventStream e1 <> EventStream e2 = EventStream (UI.unionWith const e1 e2)
+  EventStream e1 <> EventStream e2 =
+    EventStream (UI.unionWith (++) e1 e2)
 
 instance Monoid EventStream where
   mempty = EventStream UI.never

@@ -2,11 +2,15 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Functor law" #-}
 
 module Game.UI.View.ResultModal (viewResultModal) where
 
 import Control.Monad.Writer.CPS (lift, tell)
 import Data.Foldable (Foldable (toList), traverse_)
+import Data.Functor ((<&>))
 import Data.Map.Strict qualified as Map
 import Data.Maybe (maybeToList)
 import Game.UI.Component (Component, items, onChangesLater)
@@ -26,7 +30,7 @@ viewResultModal bResult = do
         # set (attr "data-bs-dismiss") "modal"
   exitBtn <- lift $ UI.button #. "btn btn-danger" # set text "Exit"
 
-  let btns = [restartBtn, exitBtn, closeBtn] -- Put Close at end like Bootstrap
+  let btns = [restartBtn, exitBtn, closeBtn]
 
   -- Event handlers for buttons
   let evRestart = ResultCmd RestartGame <$ UI.click restartBtn
@@ -39,7 +43,7 @@ viewResultModal bResult = do
 
 -- Modal rendering
 renderModal :: [Element] -> Behavior (Maybe ResolutionEvent) -> UI Element
-renderModal btns result = do
+renderModal btns bResult = do
   modalHeader <-
     UI.div
       #. "modal-header"
@@ -49,12 +53,15 @@ renderModal btns result = do
              # set (attr "data-bs-dismiss") "modal"
              # set (attr "aria-label") "Close"
          ]
-
-  let modalBody = fmap (maybeToList . fmap renderModalBody) result
   modalFooter <- UI.div #. "modal-footer justify-content-between" #+ map element btns
+  let modalContent =
+        bResult
+          <&> fmap renderModalBody
+          <&> \body ->
+            [element modalHeader] ++ maybeToList body ++ [element modalFooter]
 
   -- Trigger show
-  onChangesLater result (traverse_ (const showModal))
+  onChangesLater bResult (traverse_ (const showModal))
 
   UI.div
     #. "modal fade"
@@ -65,10 +72,7 @@ renderModal btns result = do
     # set (attr "aria-labelledby") "modalTitle"
     #+ [ UI.div
            #. "modal-dialog modal-dialog-centered modal-lg"
-           #+ [ UI.div
-                  #. "modal-content"
-                  # sink items (fmap (\b -> [element modalHeader] ++ b ++ [element modalFooter]) modalBody)
-              ]
+           #+ [UI.div #. "modal-content" # sink items modalContent]
        ]
 
 -- Modal body rendering

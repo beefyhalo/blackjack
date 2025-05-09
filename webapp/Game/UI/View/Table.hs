@@ -75,7 +75,7 @@ controlsWidget bPid bBusted = do
 
   let evHit = fmap (PlayerTurnCmd . Hit) <$> bPid <@ UI.click hitBtn
       evStand = fmap (PlayerTurnCmd . Stand) <$> bPid <@ UI.click standBtn
-      evStandAndResolveRound = ResolutionCmd ResolveRound <$ evStand
+      evStandAndResolveRound = DealerTurnCmd DealerPlay <$ evStand
 
   tell [filterJust evHit, filterJust evStand, evStandAndResolveRound]
 
