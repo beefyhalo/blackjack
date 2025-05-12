@@ -6,7 +6,6 @@ import Crem.StateMachine (StateMachine, StateMachineT (..))
 import Data.Either (fromRight)
 import Data.Foldable (fold)
 import Data.List (singleton)
-import Data.Maybe (maybeToList)
 import Data.Profunctor (rmap)
 import Game (baseMachine)
 import GameTopology (Decision)
@@ -21,14 +20,13 @@ stateMachine stdGen = Basic (baseMachine stdGen)
 policy :: StateMachine Event (Maybe Command)
 policy = Basic insurancePolicy
 
-autoPolicy :: StateMachine Decision (Maybe Command)
-autoPolicy = Basic $ rmap (fromRight Nothing) (eitherM autoResolve)
+autoPolicy :: StateMachine Decision [Command]
+autoPolicy = Basic $ rmap (fromRight []) (eitherM autoResolve)
 
 stateMachineWithAuto :: StdGen -> StateMachine Command [Decision]
 stateMachineWithAuto stdGen =
   let stateMachine' = rmap singleton (stateMachine stdGen)
-      policy' = rmap maybeToList autoPolicy
-   in Feedback stateMachine' policy'
+   in Feedback stateMachine' autoPolicy
 
 stateMachineWithPolicy :: StdGen -> StateMachine Command [Event]
 stateMachineWithPolicy stdGen =

@@ -6,17 +6,15 @@ import Control.Monad.Trans (lift)
 import Control.Monad.Writer (tell)
 import Data.Text (pack)
 import Game.UI.Component (Component)
-import Game.UI.Model (Model)
+import Game.UI.Model (Model (..))
 import Graphics.UI.Threepenny qualified as UI
 import Graphics.UI.Threepenny.Core
-import Text.Read (readMaybe)
 import Types
 
 viewControlPanel :: Behavior Model -> Component
-viewControlPanel _bModel = do
+viewControlPanel bModel = do
   -- Input Fields
   txtName <- lift $ UI.input #. "input-name" # set (attr "placeholder") "Enter name"
-  txtBet <- lift $ UI.input #. "input-bet" # set (attr "type") "number" # set (attr "placeholder") "Bet amount"
 
   -- Buttons
   btnJoin <- lift $ UI.button #. "btn" # set text "Join Game"
@@ -27,9 +25,19 @@ viewControlPanel _bModel = do
   btnDealerTurn <- lift $ UI.button #. "btn" # set text "Dealer Turn"
   btnResolve <- lift $ UI.button #. "btn" # set text "Resolve"
 
+  -- Betting Chips
+  let chipValues = [1, 5, 10, 25, 50, 100]
+  btnChips <- traverse (\v -> lift $ UI.button #. "chip" # set text (show v)) chipValues
+
   -- Reactive Inputs
   nameIn <- stepper "" (UI.valueChange txtName)
-  betIn <- stepper (Bet 0) $ maybe 0 Bet . readMaybe <$> UI.valueChange txtBet
+  betIn <-
+    accumB (Bet 0) $
+      concatenate
+        <$> unions
+          ( zipWith (\i e -> (+ Bet i) <$ UI.click e) chipValues btnChips
+              ++ [const (Bet 0) <$ UI.click btnBet]
+          )
 
   -- Event Wiring
   let evJoin = LobbyCmd . JoinGame . pack <$> nameIn <@ UI.click btnJoin
@@ -56,8 +64,9 @@ viewControlPanel _bModel = do
            UI.div
              #. "panel betting-panel"
              #+ [ UI.h3 # set text "Betting",
-                  element txtBet,
-                  UI.div #. "button-row" #+ map element [btnBet, btnDeal]
+                  UI.div #. "chip-row" #+ map element (btnChips ++ [btnBet, btnDeal]),
+                  UI.h5 #. "chips" # sink text (foldMap (\c -> "Chips: " ++ show c) . playerChips <$> bModel),
+                  UI.h5 #. "bet" # sink text ((\(Bet b) -> "Bet: " ++ show b) <$> betIn)
                 ],
            UI.hr,
            UI.div

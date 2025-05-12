@@ -9,7 +9,8 @@ import GameTopology (Decision)
 import Types
 
 data Model = Model
-  { table :: TableModel,
+  { playerChips :: Map.Map PlayerId Chips,
+    table :: TableModel,
     result :: Maybe ResolutionEvent
   }
   deriving (Show)
@@ -28,10 +29,12 @@ data AnimationState
   deriving (Show, Eq)
 
 initialModel :: Model
-initialModel = Model (TableModel Map.empty Nothing NoAnimation) Nothing
+initialModel = Model Map.empty (TableModel Map.empty Nothing NoAnimation) Nothing
 
 update :: Decision -> Model -> Model
 update msg model = traceShow ("update", msg, model) $ case msg of
+  Right (LobbyEvt (PlayerJoined pid _)) ->
+    model {playerChips = Map.insert pid 100 model.playerChips}
   Right (DealingEvt (CardsDealt ps dealer)) ->
     model {table = TableModel (Map.fromList ps) (Just $ Dealer (Hand [visibleCard dealer])) AnimateDealing}
   Right (PlayerTurnEvt (HitCard pid card)) ->
@@ -39,8 +42,8 @@ update msg model = traceShow ("update", msg, model) $ case msg of
      in model {table = model.table {playerHands, animation = AnimateHit pid}}
   Right (DealerTurnEvt (DealerPlayed dealer)) ->
     model {table = model.table {dealer = Just dealer}}
-  Right (ResolutionEvt result) ->
-    model {result = Just result}
+  Right (ResolutionEvt result@(RoundResolved _ summaries)) ->
+    model {result = Just result, playerChips = fmap finalChips summaries }
   Right (ResultEvt GameRestarted) ->
-    initialModel
+    initialModel {playerChips = model.playerChips}
   _ -> model {table = model.table {animation = NoAnimation}}

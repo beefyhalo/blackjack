@@ -1,6 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE RecursiveDo #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module Main (main) where
 

@@ -48,11 +48,12 @@ insurancePolicy =
           command = if null pids' then Just (InsuranceCmd ResolveInsurance) else Nothing
        in pureResult command (InsurancePolicyState pids')
 
-autoResolve :: BaseMachine (TrivialTopology @()) Event (Maybe Command)
+autoResolve :: BaseMachine (TrivialTopology @()) Event [Command]
 autoResolve = statelessBase \case
-  InsuranceEvt (InsuranceResolved _) -> resolveRound
-  PlayerTurnEvt _ -> resolveRound
-  DealerTurnEvt _ -> resolveRound
-  _ -> Nothing
+  BettingEvt BetPlaced {}  -> [DealingCmd DealInitialCards]
+  InsuranceEvt InsuranceResolved {} -> [resolveRound]
+  PlayerTurnEvt {} -> [DealerTurnCmd DealerPlay, resolveRound]
+  DealerTurnEvt {} -> [resolveRound]
+  _ -> []
   where
-    resolveRound = Just (ResolutionCmd ResolveRound)
+    resolveRound = ResolutionCmd ResolveRound
