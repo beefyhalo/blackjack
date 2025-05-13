@@ -41,8 +41,9 @@ playersWidget bHands bAnim = do
 playerWidget :: Behavior (Maybe (PlayerId, Hand)) -> Behavior AnimationState -> Component
 playerWidget bMaybePlayer bAnim = do
   let bHandElems = renderAnimatedHand <$> bAnim <*> (fmap snd <$> bMaybePlayer)
-      bNameText = foldMap (show . fst) <$> bMaybePlayer
+      bScoreText = ("Score: " <>) . foldMap (show . score . snd) <$> bMaybePlayer
       bPid = fmap fst <$> bMaybePlayer
+      bNameText = foldMap show <$> bPid
       bBusted = maybe False (isBust . snd) <$> bMaybePlayer -- Check if hand is busted
       bStyle = bool "player mb-3" "player mb-3 busted" <$> bBusted
 
@@ -52,6 +53,7 @@ playerWidget bMaybePlayer bAnim = do
     UI.div
       # sink UI.class_ bStyle
       #+ [ UI.h5 #. "player-title mb-2" # sink text bNameText,
+           UI.h5 #. "player-score mb-3" # sink text bScoreText,
            UI.div #. "hand d-flex flex-wrap gap-2" # sink items bHandElems,
            element controls
          ]
