@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import Application (whole)
+import Application (stateMachineWithAuto)
 import Crem.StateMachine (StateMachineT, run)
 import Data.Functor.Identity (Identity (Identity))
 import Types (Command)
@@ -13,7 +13,7 @@ main :: IO ()
 main = do
   putStrLn "Welcome to Blackjack!"
   stdGen <- initStdGen
-  gameLoop (whole stdGen)
+  gameLoop (stateMachineWithAuto stdGen)
 
 gameLoop :: (Show output) => StateMachineT Identity Command output -> IO ()
 gameLoop machine = do

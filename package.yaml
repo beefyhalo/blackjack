@@ -44,7 +44,7 @@ library:
   - singletons-base
   - containers
   - vector
-  - generic-override
+  # - generic-override
   - profunctors
   - nonempty-zipper
   - text

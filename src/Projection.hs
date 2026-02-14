@@ -1,54 +1,54 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
+-- {-# LANGUAGE DataKinds #-}
+-- {-# LANGUAGE DerivingVia #-}
+-- {-# LANGUAGE LambdaCase #-}
+-- {-# LANGUAGE PackageImports #-}
+-- {-# LANGUAGE TemplateHaskell #-}
+-- {-# LANGUAGE TypeFamilies #-}
+-- {-# LANGUAGE UndecidableInstances #-}
 
-module Projection (module Projection) where
+module Projection () where
 
-import Crem.BaseMachine (BaseMachine, BaseMachineT (..), InitialState (InitialState), pureResult)
-import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
-import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
-import Data.Monoid (Sum)
-import Data.Override (Override (Override))
-import Types (Chips, Event (ResolutionEvt), ResolutionEvent (RoundResolved))
-import GHC.Generics (Generic)
-import "singletons-base" Data.Singletons.Base.TH hiding (Sum)
+-- import Crem.BaseMachine (BaseMachine, BaseMachineT (..), InitialState (InitialState), pureResult)
+-- import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
+-- import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
+-- import Data.Monoid (Sum)
+-- import Data.Override (Override (Override))
+-- import Types (Chips, Event (ResolutionEvt), ResolutionEvent (RoundResolved))
+-- import GHC.Generics (Generic)
+-- import "singletons-base" Data.Singletons.Base.TH hiding (Sum)
 
-data Summary = Summary
-  { winnings :: Sum Chips,
-    losses :: Sum Chips,
-    rounds :: Sum Int
-  }
-  deriving (Show, Eq, Generic)
-  deriving (Semigroup, Monoid) via Override Summary '[]
+-- data Summary = Summary
+--   { winnings :: Sum Chips,
+--     losses :: Sum Chips,
+--     rounds :: Sum Int
+--   }
+--   deriving (Show, Eq, Generic)
+--   deriving (Semigroup, Monoid) via Override Summary '[]
 
-$( singletons
-     [d|
-       data ProjectionVertex = SingleProjectionVertex
-         deriving stock (Eq, Show, Enum, Bounded)
+-- $( singletons
+--      [d|
+--        data ProjectionVertex = SingleProjectionVertex
+--          deriving stock (Eq, Show, Enum, Bounded)
 
-       projectionTopology :: Topology ProjectionVertex
-       projectionTopology = Topology []
-       |]
- )
+--        projectionTopology :: Topology ProjectionVertex
+--        projectionTopology = Topology []
+--        |]
+--  )
 
-deriving via AllVertices ProjectionVertex instance RenderableVertices ProjectionVertex
+-- deriving via AllVertices ProjectionVertex instance RenderableVertices ProjectionVertex
 
-data ProjectionState (phase :: ProjectionVertex) where
-  SingleProjectionState :: Summary -> ProjectionState 'SingleProjectionVertex
+-- data ProjectionState (phase :: ProjectionVertex) where
+--   SingleProjectionState :: Summary -> ProjectionState 'SingleProjectionVertex
 
-gameProjection :: BaseMachine ProjectionTopology Event Summary
-gameProjection =
-  BaseMachineT
-    { initialState = InitialState (SingleProjectionState mempty),
-      action = \(SingleProjectionState summary) -> \case
-        ResolutionEvt (RoundResolved _ _outcomes) ->
-          let winnings = 0 -- foldMap (\case (Win chips, _) -> Sum chips; _ -> 0) outcomes
-              losses = 0 -- foldMap (\case (Loss chips, _) -> Sum chips; _ -> 0) outcomes
-              summary' = summary <> Summary winnings losses 1
-           in pureResult summary' (SingleProjectionState summary')
-        _ -> pureResult summary (SingleProjectionState summary)
-    }
+-- gameProjection :: BaseMachine ProjectionTopology Event Summary
+-- gameProjection =
+--   BaseMachineT
+--     { initialState = InitialState (SingleProjectionState mempty),
+--       action = \(SingleProjectionState summary) -> \case
+--         ResolutionEvt (RoundResolved _ _outcomes) ->
+--           let winnings = 0 -- foldMap (\case (Win chips, _) -> Sum chips; _ -> 0) outcomes
+--               losses = 0 -- foldMap (\case (Loss chips, _) -> Sum chips; _ -> 0) outcomes
+--               summary' = summary <> Summary winnings losses 1
+--            in pureResult summary' (SingleProjectionState summary')
+--         _ -> pureResult summary (SingleProjectionState summary)
+--     }
