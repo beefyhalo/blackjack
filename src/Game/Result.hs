@@ -14,5 +14,5 @@ decideResult _ _ = Left GameAlreadyStarted
 
 evolveResult :: Game Result -> ResultEvent -> EvolutionResult GameTopology Game Result output
 evolveResult game@Game {state = ResultState players} = \case
-  GameRestarted -> EvolutionResult (withUpdatedRng game {state = LobbyState players})
+  GameRestarted -> EvolutionResult $ withUpdatedRng game {state = LobbyState players}
   GameExited -> EvolutionResult game {state = ExitedState}

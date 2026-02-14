@@ -18,9 +18,8 @@ decideDealerPlay Game {state = DealerTurnState context} = \case
     dealerPlay :: Dealer -> Deck -> Dealer
     dealerPlay dealer deck
       | not (dealerShouldHit dealer) = dealer
-      | otherwise = case drawCard deck of
-          Nothing -> dealer
-          Just (card, newDeck) -> dealerPlay (Dealer (addCard card dealer.dealerHand)) newDeck
+      | Just (card, newDeck) <- drawCard deck = dealerPlay (Dealer (addCard card dealer.dealerHand)) newDeck
+      | otherwise = dealer
 decideDealerPlay Game {state = PlayerTurnState {}} = \_ -> Left PlayersStillPlaying
 decideDealerPlay _ = \_ -> Left BadCommand
 

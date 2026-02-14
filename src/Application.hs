@@ -24,23 +24,23 @@ autoPolicy :: StateMachine Decision [Command]
 autoPolicy = Basic $ rmap (fromRight []) (eitherM autoResolve)
 
 stateMachineWithAuto :: StdGen -> StateMachine Command [Decision]
-stateMachineWithAuto stdGen =
-  let stateMachine' = rmap singleton (stateMachine stdGen)
-   in Feedback stateMachine' autoPolicy
+stateMachineWithAuto stdGen = Feedback stateMachine' autoPolicy
+  where
+    stateMachine' = rmap singleton (stateMachine stdGen)
 
 stateMachineWithPolicy :: StdGen -> StateMachine Command [Event]
-stateMachineWithPolicy stdGen =
-  let stateMachine' = rmap (foldMap singleton) (stateMachine stdGen)
-      policy' = rmap (foldMap singleton) policy
-   in Feedback stateMachine' policy'
+stateMachineWithPolicy stdGen = Feedback stateMachine' policy'
+  where
+    stateMachine' = rmap (foldMap singleton) (stateMachine stdGen)
+    policy' = rmap (foldMap singleton) policy
 
 projection :: StateMachine Event Summary
 projection = Basic gameProjection
 
 whole :: StdGen -> StateMachine Command (Decision, Summary)
-whole stdGen =
-  let output = stateMachine stdGen
-      writeModel = rmap (foldMap singleton) output
-      readModel = rmap singleton projection
-      summary = rmap fold (Kleisli writeModel readModel)
-   in output &&& summary
+whole stdGen = output &&& summary
+  where
+    output = stateMachine stdGen
+    writeModel = rmap (foldMap singleton) output
+    readModel = rmap singleton projection
+    summary = rmap fold (Kleisli writeModel readModel)

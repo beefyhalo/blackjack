@@ -37,20 +37,20 @@ insurancePolicy =
   BaseMachineT
     { initialState = InitialState (InsurancePolicyState Set.empty),
       action = \(InsurancePolicyState pids) -> \case
-        DealingEvt (CardsDealt ps _) -> pureResult Nothing (InsurancePolicyState $ Set.fromList (fmap fst ps))
+        DealingEvt (CardsDealt ps _) -> pureResult Nothing (InsurancePolicyState $ Set.fromList (map fst ps))
         InsuranceEvt (PlayerTookInsurance pid _) -> emitResolveInsurance pid pids
         InsuranceEvt (PlayerDeclinedInsurance pid) -> emitResolveInsurance pid pids
         _ -> pureResult Nothing (InsurancePolicyState pids)
     }
   where
-    emitResolveInsurance pid pids =
-      let pids' = Set.delete pid pids
-          command = if null pids' then Just (InsuranceCmd ResolveInsurance) else Nothing
-       in pureResult command (InsurancePolicyState pids')
+    emitResolveInsurance pid pids = pureResult command (InsurancePolicyState pids')
+      where
+        pids' = Set.delete pid pids
+        command = if null pids' then Just (InsuranceCmd ResolveInsurance) else Nothing
 
 autoResolve :: BaseMachine (TrivialTopology @()) Event [Command]
 autoResolve = statelessBase \case
-  BettingEvt BetPlaced {}  -> [DealingCmd DealInitialCards]
+  BettingEvt BetPlaced {} -> [DealingCmd DealInitialCards]
   InsuranceEvt InsuranceResolved {} -> [resolveRound]
   PlayerTurnEvt {} -> [DealerTurnCmd DealerPlay, resolveRound]
   DealerTurnEvt {} -> [resolveRound]

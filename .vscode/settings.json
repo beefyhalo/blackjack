@@ -1,6 +1,0 @@
-{
-  "haskell.manageHLS": "GHCup",
-  "files.watcherExclude": {
-    "**/target": true
-  }
-}

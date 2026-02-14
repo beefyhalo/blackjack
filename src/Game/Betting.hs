@@ -23,10 +23,10 @@ decideBetting _ = \_ -> Left BadCommand
 
 evolveBetting :: Game AwaitingBets -> BettingEvent -> EvolutionResult GameTopology Game AwaitingBets output
 evolveBetting game@Game {stdGen, state = BettingState players} = \case
-  BetPlaced pid bet ->
-    let updateBet player = player {stack = player.stack {currentBet = bet}}
-        players' = Map.adjust updateBet pid players
-        allBetsIn = all ((> 0) . currentBet . stack) players'
-     in if allBetsIn
-          then EvolutionResult game {state = DealingState players' (mkDeck stdGen)}
-          else EvolutionResult game {state = BettingState players'}
+  BetPlaced pid bet
+    | allBetsIn -> EvolutionResult game {state = DealingState players' (mkDeck stdGen)}
+    | otherwise -> EvolutionResult game {state = BettingState players'}
+    where
+      updateBet player = player {stack = player.stack {currentBet = bet}}
+      players' = Map.adjust updateBet pid players
+      allBetsIn = all ((> 0) . (.stack.currentBet)) players'

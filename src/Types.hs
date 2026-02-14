@@ -5,7 +5,6 @@
 
 module Types (module Types) where
 
-import Control.Monad (join)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Map.Strict qualified as Map
@@ -47,21 +46,18 @@ data PlayerRound = PlayerRound
   deriving (Eq, Show)
 
 hasLost :: PlayerRound -> Bool
-hasLost round =
-  round.hasSurrendered || all (isBust . hand) round.hands
+hasLost round = round.hasSurrendered || all (isBust . hand) round.hands
 
 hasCompletedTurn :: PlayerRound -> Bool
-hasCompletedTurn round =
-  hasLost round || all (\h -> hasStood h || hasDoubledDown h) round.hands
+hasCompletedTurn round = hasLost round || all (\h -> hasStood h || hasDoubledDown h) round.hands
 
 initPlayerRound :: Hand -> Player -> PlayerRound
-initPlayerRound hand player =
-  let handState = initHandState hand player
-   in PlayerRound player (Z.fromNonEmpty $ pure handState) Nothing False
+initPlayerRound hand player = PlayerRound player (Z.fromNonEmpty $ pure handState) Nothing False
+  where
+    handState = initHandState hand player
 
 modifyCurrentHand :: (HandState -> HandState) -> PlayerRound -> PlayerRound
-modifyCurrentHand f round =
-  round {hands = Z.replace (f (Z.current round.hands)) round.hands}
+modifyCurrentHand f round = round {hands = Z.replace (f (Z.current round.hands)) round.hands}
 
 withPlayerRound ::
   PlayerId ->
@@ -80,8 +76,7 @@ data HandState = HandState
   deriving (Eq, Show)
 
 initHandState :: Hand -> Player -> HandState
-initHandState hand player =
-  HandState hand player.stack.currentBet False False
+initHandState hand player = HandState hand player.stack.currentBet False False
 
 newtype Dealer = Dealer {dealerHand :: Hand}
   deriving (Eq, Show)
@@ -91,7 +86,7 @@ visibleCard = head . unHand . dealerHand -- assuming dealer shows first card
 
 -- Hit if the dealer has less than 17 points
 dealerShouldHit :: Dealer -> Bool
-dealerShouldHit (Dealer hand) = score hand < 17
+dealerShouldHit = (< 17) . score . dealerHand
 
 data InsuranceChoice
   = TookInsurance Bet
@@ -274,8 +269,8 @@ data InsurancePayout
   deriving (Eq, Show)
 
 payoutForInsurance :: Dealer -> PlayerRound -> InsurancePayout
-payoutForInsurance (Dealer dealerHand) PlayerRound {insurance} = case insurance of
-  Just (TookInsurance (Bet amt))
+payoutForInsurance (Dealer dealerHand) = \case
+  PlayerRound {insurance = Just (TookInsurance (Bet amt))}
     | isBlackjack dealerHand -> WonInsurancePayout (amt * 2) -- 2:1 insurance payout if the dealer has a blackjack
     | otherwise -> LostInsuranceBet amt
   _ -> NoInsurance
@@ -312,7 +307,10 @@ data Deck = Deck
 mkDeck :: StdGen -> Deck
 mkDeck g = Deck g 0 6
 
--- Efficient O(1) lookup of the n-th element of a virtual Fisher-Yates shuffle
+withDeck :: Maybe b -> Either GameError b
+withDeck = maybe (Left EmptyDeck) Right
+
+-- Lookup of the n-th element of a virtual Fisher-Yates shuffle
 fisherYatesIndex :: [a] -> Int -> StdGen -> Maybe a
 fisherYatesIndex xs n g
   | n >= length xs = Nothing
@@ -320,17 +318,16 @@ fisherYatesIndex xs n g
   where
     go v i g0
       | i > n = Just (v V.! n)
-      | otherwise =
-          let (j, g') = randomR (i, V.length v - 1) g0
-              v' = v V.// [(i, v V.! j), (j, v V.! i)]
-           in go v' (i + 1) g'
+      | otherwise = go v' (i + 1) g'
+      where
+        (j, g') = randomR (i, V.length v - 1) g0
+        v' = v V.// [(i, v V.! j), (j, v V.! i)]
 
 drawCard :: Deck -> Maybe (Card, Deck)
-drawCard deck@Deck {gen, drawn, shoeSize} = do
-  card <- fisherYatesIndex shoe drawn gen
-  pure (card, deck {drawn = drawn + 1})
+drawCard deck@Deck {gen, drawn, shoeSize} =
+  (,deck {drawn = drawn + 1}) <$> fisherYatesIndex shoe drawn gen
   where
-    shoe = join $ replicate shoeSize allCards
+    shoe = concat $ replicate shoeSize allCards
 
 dealN :: Int -> Deck -> Maybe (Hand, Deck)
 dealN n deck = go n deck []
@@ -405,7 +402,7 @@ score (Hand hand) = adjustForAces total aces
       | otherwise = adjustForAces (t - 10) (a - 1)
 
 isBust :: Hand -> Bool
-isBust hand = score hand > 21
+isBust = (> 21) . score
 
 isBlackjack :: Hand -> Bool
 isBlackjack hand = score hand == 21 && handSize hand == 2

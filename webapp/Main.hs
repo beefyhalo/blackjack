@@ -29,7 +29,7 @@ setupGui window = void mdo
 
   -- Reactive Model-Update-View
   (ui, EventStream commands) <- runComponent (view model)
-  (decisions, _) <- mapAccum initialGame (fmap runGame commands)
+  (decisions, _) <- mapAccum initialGame (runGame <$> commands)
   model <- accumB initialModel (flip (foldr update) <$> decisions)
 
   getBody window # set children [ui]
