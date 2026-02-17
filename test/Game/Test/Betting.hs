@@ -29,8 +29,21 @@ prop_decide_bet_emits_PlaceBet = property do
   decideBetting game' (PlaceBet pid bet) === Right (BetPlaced pid bet)
 
 -- decide rejects with a MalsizedBet
+prop_decide_bet_rejects_MalsizedBet :: Property
+prop_decide_bet_rejects_MalsizedBet = property do
+  game@Game {state = BettingState players} <- forAll genBettingStateGame
+  (pid, player) <- forAll $ Gen.element (Map.toList players)
+  let player' = player {stack = player.stack {currentBet = 0}}
+      game' = game {state = BettingState (Map.insert pid player' players)}
+      bet = Bet (player'.stack.chips + 1)
+  decideBetting game' (PlaceBet pid bet) === Left MalsizedBet
 
 -- decide rejects if not in the lobby
+prop_decide_rejects_PlaceBet_in_non_betting_state :: Property
+prop_decide_rejects_PlaceBet_in_non_betting_state = property do
+  SomeGame game <- forAllNonBettingStateGame
+  pid <- forAll genPlayerId
+  decideBetting game (PlaceBet pid (Bet 1)) === Left BadCommand
 
 -- evolve updates the state with a joined player
 prop_evolve_BetPlaced_advances_state :: Property

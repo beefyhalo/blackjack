@@ -25,11 +25,11 @@ tests = checkParallel $$discover
 -- decide emits a InsuranceTaken event
 prop_decide_take_insurance_emits_PlayerTookInsurance :: Property
 prop_decide_take_insurance_emits_PlayerTookInsurance = property do
-  game@Game {state = OfferingInsuranceState context@GameContext {rounds}} <- forAll genOfferingInsuranceStateGame
-  (pid, round) <- forAll $ Gen.element (Map.toList rounds)
+  game@Game {state = OfferingInsuranceState ctx} <- forAll genOfferingInsuranceStateGame
+  (pid, round) <- forAll $ Gen.element (Map.toList ctx.rounds)
   let round' = round {insurance = Nothing}
-      rounds' = Map.insert pid round' rounds
-      game' = game {state = OfferingInsuranceState context {rounds = rounds'}}
+      rounds' = Map.insert pid round' ctx.rounds
+      game' = game {state = OfferingInsuranceState ctx {rounds = rounds'}}
   bet <- forAll $ genBet round.player.stack.chips
   decideInsurance game' (TakeInsurance pid bet) === Right (PlayerTookInsurance pid bet)
 
@@ -46,8 +46,22 @@ prop_decide_take_insurance_rejects_already_insured = property do
   decideInsurance game' (TakeInsurance pid bet) === Left PlayerAlreadyInsured
 
 -- rejects when the sidebet is malsized
+prop_decide_take_insurance_rejects_malsized_sidebet :: Property
+prop_decide_take_insurance_rejects_malsized_sidebet = property do
+  game@Game {state = OfferingInsuranceState context@GameContext {rounds}} <- forAll genOfferingInsuranceStateGame
+  (pid, round) <- forAll $ Gen.element (Map.toList rounds)
+  let round' = round {insurance = Nothing}
+      rounds' = Map.insert pid round' rounds
+      game' = game {state = OfferingInsuranceState context {rounds = rounds'}}
+      sidebet = Bet (round.player.stack.chips + 1)
+  decideInsurance game' (TakeInsurance pid sidebet) === Left MalsizedBet
 
--- -- decide rejects if not in the lobby
+-- decide rejects if not in the insurance state
+prop_decide_rejects_TakeInsurance_in_non_offering_insurance_state :: Property
+prop_decide_rejects_TakeInsurance_in_non_offering_insurance_state = property do
+  SomeGame game <- forAllNonOfferingInsuranceStateGame
+  pid <- forAll genPlayerId
+  decideInsurance game (TakeInsurance pid (Bet 1)) === Left BadCommand
 
 -- decide emits a InsuranceTaken event
 prop_decide_reject_insurance_emits_PlayerDeclinedInsurance :: Property

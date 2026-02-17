@@ -29,4 +29,4 @@ evolveBetting game@Game {stdGen, state = BettingState players} = \case
     where
       updateBet player = player {stack = player.stack {currentBet = bet}}
       players' = Map.adjust updateBet pid players
-      allBetsIn = all ((> 0) . (.stack.currentBet)) players'
+      allBetsIn = all (\p -> p.stack.currentBet > 0) players'

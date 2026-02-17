@@ -23,7 +23,7 @@ prop_decideDealerPlay_plays_until_stand = property do
   game@Game {state = DealerTurnState ctx} <- forAll genDealerTurnStateGame
   case decideDealerPlay game DealerPlay of
     Right (DealerPlayed dealer) -> do
-      assert . not $ dealerShouldHit dealer
+      assert $ not (dealerShouldHit dealer)
       diff (handSize ctx.context.dealer.dealerHand) (<=) (handSize dealer.dealerHand)
     _ -> failure
 

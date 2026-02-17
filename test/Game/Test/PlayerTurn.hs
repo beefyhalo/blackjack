@@ -75,6 +75,17 @@ prop_reject_double_doubledown = property do
   decidePlayerTurn game' (DoubleDown pid) === Left PlayerAlreadyActed
 
 -- reject double down malsized bet (not enough chips)
+prop_reject_doubledown_malsized_bet :: Property
+prop_reject_doubledown_malsized_bet = property do
+  game@Game {state = OpeningTurnState OpeningContext {insuranceContext}} <- forAll genOpeningTurnStateGame
+  let InsuranceContext {context = GameContext deck rounds dealer} = insuranceContext
+  (pid, round@PlayerRound {player = player@Player {stack}, hands}) <- forAll $ Gen.element (Map.toList rounds)
+  let currentHand = Z.current hands
+      round' = round {player = player {stack = stack {chips = let Bet b = bet currentHand in b * 2 - 1}}}
+      rounds' = Map.insert pid round' rounds
+      readyPlayers = Set.empty
+      game' = game {state = OpeningTurnState $ OpeningContext (insuranceContext {context = GameContext deck rounds' dealer}) readyPlayers}
+  decidePlayerTurn game' (DoubleDown pid) === Left MalsizedBet
 
 prop_split_opening_turn_isValid :: Property
 prop_split_opening_turn_isValid = property do
@@ -94,8 +105,6 @@ prop_split_opening_turn_isValid = property do
       readyPlayers = Set.empty
       game' = game {state = OpeningTurnState $ OpeningContext (insuranceContext {context = GameContext deck rounds' dealer}) readyPlayers}
   decidePlayerTurn game' (Split pid) === Right (PlayerSplitHand pid card1 card2 draw1 draw2)
-
--- reject split malsized bet (not enough chips)
 
 -- reject bad split
 prop_split_reject_bad_split_hand :: Property
@@ -175,7 +184,17 @@ prop_evolve_DoubleDown = property do
       failure
     EvolutionResult game'' -> annotateShow game'' >> failure
 
--- test that readyPlayers increases
+-- surrendering updates readyPlayers and advances state
+prop_evolve_PlayerSurrendered_increases_readyPlayers :: Property
+prop_evolve_PlayerSurrendered_increases_readyPlayers = property do
+  (game, pid, _) <- forAll genOpeningTurnStateUnplayedHand
+  let evolved = evolveOpeningTurn game (PlayerSurrendered pid)
+  case evolved of
+    EvolutionResult Game {state = OpeningTurnState OpeningContext {readyPlayers}} -> do
+      assert (Set.member pid readyPlayers)
+    EvolutionResult Game {state = DealerTurnState {}} -> success
+    EvolutionResult Game {state = ResolvingState {}} -> success
+    EvolutionResult game' -> annotateShow game' >> failure
 
 -- replace the current focus with an unplayed hand and add a new unplayed hand
 genOpeningTurnStateUnplayedHand :: Gen (Game OpeningTurn, PlayerId, PlayerRound)

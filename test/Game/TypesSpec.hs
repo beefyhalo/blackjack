@@ -1,5 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE TemplateHaskell,OverloadedStrings,OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Game.TypesSpec (tests) where
 
@@ -67,7 +69,7 @@ prop_can_split_only_identical_ranks = property do
   hand <- forAll genTwoCardHand
   assert (canSplit hand == (handSize hand == 2 && sameRank hand))
   where
-    sameRank (Hand (Card r1 _ : Card r2 _ : _)) = r1 == r2
+    sameRank (Hand [Card r1 _, Card r2 _]) = r1 == r2
     sameRank _ = False
 
 -- Dealer hits on soft 16 and under
@@ -85,12 +87,11 @@ prop_all_aces_hand_values_correctly = property do
       expected = if n == 1 then 11 else 11 + (n - 1)
   score hand === expected
 
-
 prop_chipsDelta_grouped :: Property
 prop_chipsDelta_grouped = property do
-  bet <- forAll $ genBet 1000 
+  bet <- forAll $ genBet 1000
 
-  label "PlayerWins Blackjack"  
+  label "PlayerWins Blackjack"
   chipsDelta bet (PlayerWins Blackjack) === round (fromIntegral bet.current * 1.5 :: Float)
 
   label "PlayerWins Normal"

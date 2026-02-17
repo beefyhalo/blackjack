@@ -2,7 +2,6 @@ module Application (stateMachine, stateMachineWithAuto) where
 
 import Crem.BaseMachine (eitherM)
 import Crem.StateMachine (StateMachine, StateMachineT (..))
-import Data.Either (fromRight)
 import Data.List (singleton)
 import Data.Profunctor (rmap)
 import Game (baseMachine)
@@ -18,7 +17,7 @@ stateMachine stdGen = Basic (baseMachine stdGen)
 -- policy = Basic insurancePolicy
 
 autoPolicy :: StateMachine Decision [Command]
-autoPolicy = Basic $ rmap (fromRight []) (eitherM autoResolve)
+autoPolicy = Basic $ rmap concat (eitherM autoResolve)
 
 stateMachineWithAuto :: StdGen -> StateMachine Command [Decision]
 stateMachineWithAuto stdGen = Feedback stateMachine' autoPolicy
