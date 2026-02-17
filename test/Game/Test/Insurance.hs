@@ -93,16 +93,16 @@ prop_decide_offer_ResolveInsurance = property do
 -- decide resolve insurance state
 prop_decide_resolve_ResolveInsurance :: Property
 prop_decide_resolve_ResolveInsurance = property do
-  game@Game {state = ResolvingInsuranceState GameContext {rounds}} <- forAll genResolvingInsuranceStateGame
+  game@Game {state = ResolvingInsuranceState ctx} <- forAll genResolvingInsuranceStateGame
   case decideInsurance game ResolveInsurance of
-    Right (InsuranceResolved payouts) -> Map.size payouts === Map.size rounds
+    Right (InsuranceResolved payouts) -> Map.size payouts === Map.size ctx.rounds
     decision -> annotateShow decision >> failure
 
 -- evolve offering insurances advances the state when all players are in
 prop_evolve_PlayerTookInsurance_advances_state :: Property
 prop_evolve_PlayerTookInsurance_advances_state = property do
-  game@Game {state = OfferingInsuranceState (GameContext _ rounds _)} <- forAll genOfferingInsuranceStateGame
-  pid <- forAll $ Gen.element (Map.keys rounds)
+  game@Game {state = OfferingInsuranceState ctx} <- forAll genOfferingInsuranceStateGame
+  pid <- forAll $ Gen.element (Map.keys ctx.rounds)
   bet <- forAll $ genChips >>= genBet
   let evolved = evolveOfferingInsurance game (PlayerTookInsurance pid bet)
   case evolved of
@@ -116,8 +116,8 @@ prop_evolve_PlayerTookInsurance_advances_state = property do
 -- evolve offering insurances advances the state when all players are in
 prop_evolve_PlayerDeclinedInsurance_advances_state :: Property
 prop_evolve_PlayerDeclinedInsurance_advances_state = property do
-  game@Game {state = OfferingInsuranceState (GameContext _ rounds _)} <- forAll genOfferingInsuranceStateGame
-  pid <- forAll $ Gen.element (Map.keys rounds)
+  game@Game {state = OfferingInsuranceState ctx} <- forAll genOfferingInsuranceStateGame
+  pid <- forAll $ Gen.element (Map.keys ctx.rounds)
   let evolved = evolveOfferingInsurance game (PlayerDeclinedInsurance pid)
   case evolved of
     EvolutionResult Game {state = OfferingInsuranceState (GameContext _ rounds' _)} ->
@@ -129,20 +129,20 @@ prop_evolve_PlayerDeclinedInsurance_advances_state = property do
 
 prop_evolve_InsuranceResolved :: Property
 prop_evolve_InsuranceResolved = property do
-  game@Game {state = ResolvingInsuranceState (GameContext _ rounds _)} <- forAll genResolvingInsuranceStateGame
-  payouts <- forAll $ traverse (const genInsurancePayout) rounds
+  game@Game {state = ResolvingInsuranceState ctx} <- forAll genResolvingInsuranceStateGame
+  payouts <- forAll $ traverse (const genInsurancePayout) ctx.rounds
   let evolved = evolveResolvingInsurance game (InsuranceResolved payouts)
   case evolved of
-    EvolutionResult Game {state = OpeningTurnState OpeningContext {insuranceContext, readyPlayers}} -> do
-      let InsuranceContext {context = GameContext _ rounds' _} = insuranceContext
+    EvolutionResult Game {state = OpeningTurnState ctx'} -> do
+      let rounds' = ctx'.insuranceContext.context.rounds
           checkStack pid round =
-            let round' = rounds Map.! pid
+            let round' = ctx.rounds Map.! pid
              in if payouts Map.! pid == NoInsurance
                   then success
                   else round.player.stack /== round'.player.stack
-      Map.size rounds === Map.size rounds'
+      Map.size ctx.rounds === Map.size rounds'
       void $ Map.traverseWithKey checkStack rounds'
-      assert (null readyPlayers)
+      assert (null ctx'.readyPlayers)
     EvolutionResult Game {state = ResolvingState ResolutionContext {resolvedDealer}} ->
       cover 20 "Dealer Blackjack" (isBlackjack (dealerHand resolvedDealer))
     EvolutionResult game' -> annotateShow game' >> failure

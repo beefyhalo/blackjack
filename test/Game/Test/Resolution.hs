@@ -36,8 +36,8 @@ prop_playerSummary_netChipChange_matches_finalChips = property do
     Right (RoundResolved _ playerSummaries) ->
       for_ (Map.toList playerSummaries) \(pid, summary) -> do
         let PlayerSummary {netChipChange, finalChips, insurancePayout} = summary
-            PlayerRound {player = Player {stack}} = ctx.resolvedRounds Map.! pid
-            originalChips = chips stack
+            round = ctx.resolvedRounds Map.! pid
+            originalChips = round.player.stack.chips
             expectedFinal = originalChips + netChipChange - maybe 0 insuranceDelta insurancePayout
         classify "positive finalChips" (finalChips > 0)
         finalChips === expectedFinal

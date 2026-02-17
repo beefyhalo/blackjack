@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -40,15 +41,14 @@ prop_hit_player_turn_draws_card = property do
 
 prop_opening_turn_stand_isValid :: Property
 prop_opening_turn_stand_isValid = property do
-  game@Game {state = OpeningTurnState OpeningContext {insuranceContext}} <- forAll genOpeningTurnStateGame
-  let InsuranceContext {context = GameContext _ rounds _} = insuranceContext
-  pid <- forAll $ Gen.element (Map.keys rounds)
+  game@Game {state = OpeningTurnState ctx} <- forAll genOpeningTurnStateGame
+  pid <- forAll $ Gen.element (Map.keys ctx.insuranceContext.context.rounds)
   decidePlayerTurn game (Stand pid) === Right (PlayerStood pid)
 
 prop_player_turn_stand_isValid :: Property
 prop_player_turn_stand_isValid = property do
-  game@Game {state = PlayerTurnState InsuranceContext {context = GameContext _ rounds _}} <- forAll genPlayerTurnStateGame
-  pid <- forAll $ Gen.element (Map.keys rounds)
+  game@Game {state = PlayerTurnState ctx} <- forAll genPlayerTurnStateGame
+  pid <- forAll $ Gen.element (Map.keys ctx.context.rounds)
   decidePlayerTurn game (Stand pid) === Right (PlayerStood pid)
 
 prop_doubledown_opening_turn_isValid :: Property
@@ -127,26 +127,24 @@ prop_split_reject_bad_split_hand = property do
 
 prop_surrender_opening_turn_isValid :: Property
 prop_surrender_opening_turn_isValid = property do
-  game@Game {state = OpeningTurnState OpeningContext {insuranceContext}} <- forAll genOpeningTurnStateGame
-  let InsuranceContext {context = GameContext _ rounds _} = insuranceContext
-  pid <- forAll $ Gen.element (Map.keys rounds)
+  game@Game {state = OpeningTurnState ctx} <- forAll genOpeningTurnStateGame
+  pid <- forAll $ Gen.element (Map.keys ctx.insuranceContext.context.rounds)
   let readyPlayers = Set.empty
-      game' = game {state = OpeningTurnState (OpeningContext insuranceContext readyPlayers)}
+      game' = game {state = OpeningTurnState (OpeningContext ctx.insuranceContext readyPlayers)}
   decidePlayerTurn game' (Surrender pid) === Right (PlayerSurrendered pid)
 
 prop_reject_double_surrender :: Property
 prop_reject_double_surrender = property do
-  game@Game {state = OpeningTurnState OpeningContext {insuranceContext}} <- forAll genOpeningTurnStateGame
-  let InsuranceContext {context = GameContext _ rounds _} = insuranceContext
-  pid <- forAll $ Gen.element (Map.keys rounds)
+  game@Game {state = OpeningTurnState ctx} <- forAll genOpeningTurnStateGame
+  pid <- forAll $ Gen.element (Map.keys ctx.insuranceContext.context.rounds)
   let readyPlayers = Set.fromList [pid]
-      game' = game {state = OpeningTurnState (OpeningContext insuranceContext readyPlayers)}
+      game' = game {state = OpeningTurnState (OpeningContext ctx.insuranceContext readyPlayers)}
   decidePlayerTurn game' (Surrender pid) === Left PlayerAlreadyActed
 
 prop_evolve_HitCard :: Property
 prop_evolve_HitCard = property do
-  (game@Game {state = OpeningTurnState OpeningContext {insuranceContext}}, pid, round) <- forAll genOpeningTurnStateUnplayedHand
-  let InsuranceContext {context = GameContext deck _ _} = insuranceContext
+  (game@Game {state = OpeningTurnState ctx}, pid, round) <- forAll genOpeningTurnStateUnplayedHand
+  let deck = ctx.insuranceContext.context.deck
   (card, _) <- maybe discard pure (drawCard deck)
   let evolved = evolveOpeningTurn game (HitCard pid card)
   case evolved of
@@ -165,9 +163,8 @@ prop_evolve_DoubleDown = property do
   card <- forAll genCard
   let evolved = evolveOpeningTurn game (PlayerDoubledDown pid card)
   case evolved of
-    EvolutionResult Game {state = OpeningTurnState OpeningContext {insuranceContext}} -> do
-      let InsuranceContext {context = GameContext _ rounds _} = insuranceContext
-          round' = rounds Map.! pid
+    EvolutionResult Game {state = OpeningTurnState ctx} -> do
+      let round' = ctx.insuranceContext.context.rounds Map.! pid
           cardCount = sum [handSize hand | HandState {hand} <- toList (hands round)]
           cardCount' = sum [handSize hand | HandState {hand} <- toList (hands round')]
           doubleDownCount = length (filter hasDoubledDown (toList (hands round)))
@@ -190,8 +187,8 @@ prop_evolve_PlayerSurrendered_increases_readyPlayers = property do
   (game, pid, _) <- forAll genOpeningTurnStateUnplayedHand
   let evolved = evolveOpeningTurn game (PlayerSurrendered pid)
   case evolved of
-    EvolutionResult Game {state = OpeningTurnState OpeningContext {readyPlayers}} -> do
-      assert (Set.member pid readyPlayers)
+    EvolutionResult Game {state = OpeningTurnState ctx} -> do
+      assert (Set.member pid ctx.readyPlayers)
     EvolutionResult Game {state = DealerTurnState {}} -> success
     EvolutionResult Game {state = ResolvingState {}} -> success
     EvolutionResult game' -> annotateShow game' >> failure
@@ -199,8 +196,8 @@ prop_evolve_PlayerSurrendered_increases_readyPlayers = property do
 -- replace the current focus with an unplayed hand and add a new unplayed hand
 genOpeningTurnStateUnplayedHand :: Gen (Game OpeningTurn, PlayerId, PlayerRound)
 genOpeningTurnStateUnplayedHand = do
-  game@Game {state = OpeningTurnState OpeningContext {insuranceContext}} <- genOpeningTurnStateGame
-  let InsuranceContext {context = GameContext _ rounds _} = insuranceContext
+  game@Game {state = OpeningTurnState ctx} <- genOpeningTurnStateGame
+  let rounds = ctx.insuranceContext.context.rounds
   (pid, round) <- Gen.element (Map.toList rounds)
   newHandState <- genUnplayedHand
   let currentHand = Z.current (hands round)
@@ -208,7 +205,7 @@ genOpeningTurnStateUnplayedHand = do
       hands' = Z.push newHandState (Z.replace currentHand' $ hands round)
       round' = round {hands = hands', hasSurrendered = False}
       rounds' = Map.insert pid round' rounds
-      insuranceContext' = insuranceContext {context = (context insuranceContext) {rounds = rounds'}}
+      insuranceContext' = ctx.insuranceContext {context = ctx.insuranceContext.context {rounds = rounds'}}
       readyPlayers = Set.empty
       game' = game {state = OpeningTurnState (OpeningContext insuranceContext' readyPlayers)}
   pure (game', pid, round')
