@@ -271,10 +271,7 @@ This comprehensive testing approach ensures that:
 
 ## 🚀 Getting Started
 
-### Prerequisites
-
-- **GHC 9.4+** with **GHC2021** language extensions
-- **Stack** or **Cabal** for dependency management
+Nix is optional but recommended.
 
 ### Installation
 
@@ -283,33 +280,29 @@ This comprehensive testing approach ensures that:
 git clone https://github.com/beefyhalo/blackjack.git
 cd blackjack
 
-# Install dependencies
-stack install  # or cabal install
+# Enter the dev shell (includes GHC, cabal, HLS, etc.)
+nix develop
 ```
 
 ### Running the Application
 
-#### Console Interface
 ```bash
 # Interactive terminal game
-stack run blackjack
+cabal run blackjack
 ```
 
-#### Web Interface  
-```bash  
+```bash
 # Launch web server (default: http://localhost:8023)
-stack run blackjack-webapp
-
-# Then open your browser to play
+cabal run blackjack-webapp
 ```
 
-#### Running Tests
+Then open your browser to play.
+
+### Running Tests
+
 ```bash
 # Execute property-based test suite
-stack test
-
-# Run with verbose output
-stack test --test-arguments="--verbose"
+nix develop -c cabal test
 ```
 
 ## 🎯 Key Learning Outcomes
